@@ -1,7 +1,8 @@
-open YoJson
+open Db
+open Parser
 
-val doc_to_json: doc -> YoJson.JSON
+val doc_to_json: doc -> json
 
-val json_to_doc : YoJson.JSON -> doc 
+val json_to_doc : json -> doc 
 
 val persist : db -> col -> doc -> bool  

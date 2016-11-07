@@ -1,3 +1,5 @@
+open Interface
+
 (**
  * serves as primary access point for users to 
  * interact with the database. Can query, store, delete, and create

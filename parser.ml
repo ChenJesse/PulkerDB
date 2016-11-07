@@ -20,4 +20,4 @@ type doc = Yojson.Basic.json
  * given a valid string of a JSON, will output
  * corresponding doc with the appropriate structure
  *)
-val parse: string -> doc
+let parse json_string = from_string json_string

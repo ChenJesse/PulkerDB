@@ -1,3 +1,6 @@
+open Repl
+open Interpreter
+open Db
 
 (**
  * pipelines data to interpreter, depending on the nature of 
