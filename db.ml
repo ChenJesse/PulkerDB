@@ -22,16 +22,16 @@ type catalog = (db list) ref
  * Stores the document in the appropriate collection, in the
  * appropriate database
  *)
-val store : db -> col -> doc -> bool
+let store : db -> col -> doc -> bool = failwith "Unimplemented"
 
 (**
  * Gets the document in the appropriate collection, in the
  * appropriate database
  *)
-val get : db -> col -> doc -> doc
+let get : db -> col -> doc -> doc = failwith "Unimplemented"
 
 (**
  * Checks the document in the appropriate collection, in the
  * appropriate database, for existence
  *)
-val check : db -> col -> doc -> bool
+let check : db -> col -> doc -> bool = failwith "Unimplemented"
