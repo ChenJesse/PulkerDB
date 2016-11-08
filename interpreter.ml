@@ -2,6 +2,14 @@ open Yojson.Basic
 open Parser
 open Db
 
+type response = | CreateDBResponse of bool 
+  | CreateColResponse of bool 
+  | CreateDocResponse of bool 
+  | RemoveDocResponse of bool 
+  | DropDBResponse of bool 
+  | DropColResponse of bool 
+  | QueryResponse of bool * string
+
 (**
  * Parses the input from the REPL, and calls the appropriate function
  *)
@@ -42,6 +50,12 @@ let drop_db name = failwith "Unimplemented"
  * On failure, return false. On success, return true.
  *)
 let drop_col name = failwith "Unimplemented"
+
+(**
+ * Given a string representing a query JSON, looks for matching docs in the environment. 
+ * On failure, return false. On success, return true.
+ *)
+let query json_string = failwith "Unimplemented"
 
 (**
  * given a valid string of a JSON, will output
