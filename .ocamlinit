@@ -1,2 +1,9 @@
 #require "yojson";;
-#use "parser.ml";;
+
+#directory "_build";;
+#load "db.cmo";;
+#load "interpreter.cmo";;
+#use "main.ml";;
+#use "interpreter.ml";;
+#use "db.ml";;
+#use "repl.ml";;

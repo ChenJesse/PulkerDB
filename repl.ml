@@ -1,10 +1,12 @@
+open Interpreter
+
 let help_msg = ""
 
 let rec loop input =
   (if input = "exit" then exit(0)
   else if input = "help" then print_endline help_msg
-  else match parse x with
-    | CreateDBResponse ->
+  else match parse input with
+    | CreateDBResponse x ->
       if x then print_endline "Successfully created database"
       else print_endline "Failed to create database"
     | CreateColResponse x ->

@@ -1,5 +1,5 @@
 main:
-	ocamlbuild -pkgs oUnit,yojson,str,ANSITerminal repl.byte 
+	ocamlbuild -pkgs oUnit,yojson,str,ANSITerminal main.byte
 	
 test:
 	ocamlbuild -pkgs oUnit,yojson,str,ANSITerminal test.byte && ./test.byte
