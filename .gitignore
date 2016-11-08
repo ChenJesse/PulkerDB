@@ -21,3 +21,6 @@ _build/
 # oasis generated files
 setup.data
 setup.log
+
+# ds_store
+.DS_Store
