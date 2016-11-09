@@ -6,22 +6,22 @@ let rec loop input =
   (if input = "exit" then exit(0)
   else if input = "help" then print_endline help_msg
   else match parse input with
-    | CreateDBResponse x ->
+    | CreateDBResponse (x, msg) ->
       if x then print_endline "Successfully created database"
       else print_endline "Failed to create database"
-    | CreateColResponse x ->
+    | CreateColResponse (x, msg) ->
       if x then print_endline "Successfully created collection"
       else print_endline "Failed to create collection"
-    | CreateDocResponse x ->
+    | CreateDocResponse (x, msg) ->
       if x then print_endline "Successfully created document"
       else print_endline "Failed to create document"
-    | RemoveDocResponse x ->
+    | RemoveDocResponse (x, msg) ->
       if x then print_endline "Successfully removed document"
       else print_endline "Failed to remove document"
-    | DropDBResponse x ->
+    | DropDBResponse (x, msg) ->
       if x then print_endline "Successfully dropped database"
       else print_endline "Failed to drop database"
-    | DropColResponse x ->
+    | DropColResponse (x, msg) ->
       if x then print_endline "Succesfully dropped collection"
       else print_endline "Failed to drop collection"
     | QueryResponse (x, output) ->

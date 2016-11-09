@@ -18,37 +18,21 @@ type db = (string * col list) ref
 
 type catalog = (db list) ref
 
-type response = | CreateDBResponse of bool 
-  | CreateColResponse of bool 
-  | CreateDocResponse of bool 
-  | RemoveDocResponse of bool 
-  | DropDBResponse of bool 
-  | DropColResponse of bool 
+type response = | CreateDBResponse of bool * string
+  | CreateColResponse of bool * string
+  | CreateDocResponse of bool * string
+  | RemoveDocResponse of bool * string
+  | DropDBResponse of bool * string
+  | DropColResponse of bool * string
   | QueryResponse of bool * string
 
-(**
- * Stores the document in the appropriate collection, in the
- * appropriate database
- *)
-val store : db -> col -> doc -> bool
-
-(**
- * Gets the document in the appropriate collection, in the
- * appropriate database
- *)
-val get : db -> col -> doc -> doc
-
-(**
- * Checks the document in the appropriate collection, in the
- * appropriate database, for existence
- *)
-val check : db -> col -> doc -> bool
+val environment : catalog
 
 (**
  * Given a string representation of JSON, creates a doc in the environment. 
  * On failure, return false. On success, return true.
  *)
-val create_doc : string -> string -> string -> response
+val create_doc : string -> string -> doc -> response
 
 (**
  * Given a string representing name of db, creates a db in the environment. 
@@ -66,7 +50,7 @@ val create_col : string -> string -> response
  * Given a string representation of JSON, removes a doc in the environment. 
  * On failure, return false. On success, return true.
  *)
-val remove_doc : string -> string -> string -> response
+val remove_doc : string -> string -> doc -> response
 
 (**
  * Given a string representing name of db, drops a db in the environment. 
@@ -84,4 +68,4 @@ val drop_col : string -> string -> response
  * Given a string representing a query JSON, looks for matching docs in the environment. 
  * On failure, return false. On success, return true.
  *)
-val query : string -> string -> response
+val query_col : string -> string -> doc -> response
