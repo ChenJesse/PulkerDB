@@ -18,13 +18,18 @@ type db = (string * col list) ref
 
 type catalog = (db list) ref
 
-type response = | CreateDBResponse of bool * string
+type response = CreateDBResponse of bool * string
   | CreateColResponse of bool * string
   | CreateDocResponse of bool * string
   | RemoveDocResponse of bool * string
   | DropDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
+
+type converter = ToInt of (doc -> int) | ToString of (doc -> string)
+  | ToBool of (doc -> bool) | ToFloat of (doc -> float)
+
+type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
 
 let environment : catalog = ref []
 
@@ -77,10 +82,10 @@ let create_col db col =
       | _ -> CreateColResponse(false, "Problem with storing collection")
 
 (**
- * Given a string representation of JSON, removes a doc in the environment. 
+ * Given a doc representing criteria to query on, removes all appropriate docs in the environment. 
  * On failure, return false. On success, return true.
  *)
-let remove_doc db col doc = failwith "Unimplemented"
+let remove_doc db col query_doc = failwith "Unimplemented"
 
 (**
  * Given a string representing name of db, drops a db in the environment. 
@@ -93,6 +98,106 @@ let drop_db db = failwith "Unimplemented"
  * On failure, return false. On success, return true.
  *)
 let drop_col db col = failwith "Unimplemented"
+
+(* Returns true if the doc is a nested json*)
+let nested_json doc = match doc with 
+  | `Assoc _ -> true
+  | _ -> false
+
+(* Returns true if the doc is a comparator json ex. "{key: {'$lte', 5}}" *)
+let comparator_json doc = match doc with 
+  | `Assoc lst -> let k = List.hd lst |> fst in (String.get k 0) = '$'
+  | _ -> false
+
+(**
+ * Given a doc (json), extracts the value into OCaml primitive (or list of primitives)
+ *)
+let rec get_converter (doc1 : doc) (doc2 : doc) = match doc1, doc2 with 
+  | (`Bool _, `Bool _) -> ToBool(Util.to_bool)
+  | (`Float x, `Float y) -> ToFloat(Util.to_float)
+  | (`Int x, `Int y) -> ToInt(Util.to_int)
+  | (`String x, `String y) -> ToString(Util.to_string)
+  | (_,_) -> failwith "Types don't match"
+
+let unwrap_op op =  
+  match op with 
+    | Less -> (<)
+    | LessEq -> (<=)
+    | Greater -> (>)
+    | GreaterEq -> (>=)
+    | NotEq -> (<>)
+    | Eq -> (=) 
+
+let compare_int op (doc1 : doc) (doc2 : doc) converter = 
+  match converter with 
+    | ToInt x -> (unwrap_op op) (x doc1) (x doc2)
+    | _ -> failwith "Incorrect converter"
+
+let compare_bool op (doc1 : doc) (doc2 : doc) converter =
+  match converter with 
+    | ToBool x -> (unwrap_op op) (x doc1) (x doc2)
+    | _ -> failwith "Incorrect converter"
+
+let compare_float op (doc1 : doc) (doc2 : doc) converter = 
+  match converter with 
+    | ToFloat x -> (unwrap_op op) (x doc1) (x doc2)
+    | _ -> failwith "Incorrect converter"
+
+let compare_string op (doc1 : doc) (doc2 : doc) converter = 
+  match converter with 
+    | ToString x -> (unwrap_op op) (x doc1) (x doc2)
+    | _ -> failwith "Incorrect converter"
+
+let check_doc doc query_doc = 
+  let rec helper doc query_doc p_key acc = match acc, query_doc with 
+    | (false, _) -> false
+    | (_, []) -> acc
+    | (_, h::t) -> 
+      let comparator = match (fst h) with 
+        | "$lt" -> Some Less
+        | "$lte" -> Some LessEq
+        | "$gt" -> Some Greater
+        | "$gte" -> Some GreaterEq
+        | "$ne" -> Some NotEq
+        | _ -> None
+      in 
+      match comparator with 
+        | Some c -> 
+          let doc1 = Util.member p_key doc in 
+          let doc2 = snd h in 
+          (try ((match (get_converter doc1 doc2) with 
+            | ToInt x -> compare_int c doc1 doc2 (ToInt(x)) 
+            | ToBool x -> compare_bool c doc1 doc2 (ToBool(x)) 
+            | ToString x -> compare_string c doc1 doc2 (ToString(x)) 
+            | ToFloat x -> compare_float c doc1 doc2 (ToFloat(x))
+          )) with | _ -> false)
+        | None -> (match (nested_json (snd h)) with 
+          | true -> (* We have a doc as the value, need to recurse *)
+            (* Represents the nested doc in the query_doc *)
+            let nested = match (snd h) with | `Assoc lst -> lst | _ -> failwith "Can't be here" in 
+            (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
+            if (comparator_json (snd h)) then helper doc nested (fst h) true |> helper doc t p_key
+            (* If it's a normal JSON, we only recurse a level in on doc and query_doc *)
+            else (try (helper (Util.member (fst h) doc) nested (fst h) true |> helper doc t p_key) with | _ -> false)
+          | false -> (* We have a simple equality check *)
+            let doc1 = Util.member (fst h) doc in 
+            let doc2 = snd h in 
+            (try (
+              let outcome = (match (get_converter doc1 doc2) with 
+                | ToInt x -> compare_int Eq doc1 doc2 (ToInt(x)) 
+                | ToBool x -> compare_bool Eq doc1 doc2 (ToBool(x)) 
+                | ToString x -> compare_string Eq doc1 doc2 (ToString(x)) 
+                | ToFloat x -> compare_float Eq doc1 doc2 (ToFloat(x)))
+              in 
+              helper doc t p_key outcome
+            ) with | _ -> false)
+        )
+  in 
+  match query_doc with 
+  | `Assoc lst -> helper doc lst "" true
+  | _ -> failwith "Invalid query JSON"
+
+let query db col query_doc = failwith "Unimplemented"
 
 (**
  * Given a string representing a query JSON, looks for matching docs in the environment. 

@@ -29,7 +29,7 @@ type response = | CreateDBResponse of bool * string
 val environment : catalog
 
 (**
- * Given a string representation of JSON, creates a doc in the environment. 
+ * Given a doc, creates a doc in the environment. 
  * On failure, return false. On success, return true.
  *)
 val create_doc : string -> string -> doc -> response
@@ -47,7 +47,7 @@ val create_db : string -> response
 val create_col : string -> string -> response
 
 (**
- * Given a string representation of JSON, removes a doc in the environment. 
+ * Given a doc representing criteria to query on, removes all appropriate docs in the environment. 
  * On failure, return false. On success, return true.
  *)
 val remove_doc : string -> string -> doc -> response
