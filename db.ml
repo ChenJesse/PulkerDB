@@ -33,11 +33,11 @@ type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
 
 let environment : catalog = ref []
 
-let get_db db = 
+let get_db_ref db = 
   try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with 
     | _ -> failwith "Could not locate database"
 
-let get_col col db = 
+let get_col_ref col db = 
   try (!db |> snd |> List.filter (fun x -> (fst !x) = col) |> List.hd) with 
     | _ -> failwith "Could not locate collection"
 
@@ -46,7 +46,7 @@ let get_col col db =
  * On failure, return false. On success, return true.
  *)
 let create_doc db col doc = 
-  let col_ref = db |> get_db |> get_col col in 
+  let col_ref = db |> get_db_ref |> get_col_ref col in 
   try (
     col_ref := (fst !col_ref, doc::(snd !col_ref));
     CreateDocResponse(true, "Success")
@@ -72,7 +72,7 @@ let create_db db =
  * On failure, return false. On success, return true.
  *)
 let create_col db col = 
-  let db = get_db db in 
+  let db = get_db_ref db in 
   match (snd !db |> List.exists (fun x -> (fst !x) = col)) with 
     | true -> CreateColResponse(false, "Collection with same name already exists")
     | false -> try (
@@ -80,24 +80,6 @@ let create_col db col =
         CreateColResponse(true, "Success")
       ) with 
       | _ -> CreateColResponse(false, "Problem with storing collection")
-
-(**
- * Given a doc representing criteria to query on, removes all appropriate docs in the environment. 
- * On failure, return false. On success, return true.
- *)
-let remove_doc db col query_doc = failwith "Unimplemented"
-
-(**
- * Given a string representing name of db, drops a db in the environment. 
- * On failure, return false. On success, return true.
- *)
-let drop_db db = failwith "Unimplemented"
-
-(**
- * Given a string representing name of col, drops a col in the environment. 
- * On failure, return false. On success, return true.
- *)
-let drop_col db col = failwith "Unimplemented"
 
 (* Returns true if the doc is a nested json*)
 let nested_json doc = match doc with 
@@ -176,9 +158,11 @@ let check_doc doc query_doc =
             (* Represents the nested doc in the query_doc *)
             let nested = match (snd h) with | `Assoc lst -> lst | _ -> failwith "Can't be here" in 
             (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
-            if (comparator_json (snd h)) then helper doc nested (fst h) true |> helper doc t p_key
+            if (comparator_json (snd h)) then helper doc nested (fst h) true 
+            |> helper doc t p_key
             (* If it's a normal JSON, we only recurse a level in on doc and query_doc *)
-            else (try (helper (Util.member (fst h) doc) nested (fst h) true |> helper doc t p_key) with | _ -> false)
+            else (try (helper (Util.member (fst h) doc) nested (fst h) true 
+                  |> helper doc t p_key) with | _ -> false)
           | false -> (* We have a simple equality check *)
             let doc1 = Util.member (fst h) doc in 
             let doc2 = snd h in 
@@ -197,10 +181,51 @@ let check_doc doc query_doc =
   | `Assoc lst -> helper doc lst "" true
   | _ -> failwith "Invalid query JSON"
 
-let query db col query_doc = failwith "Unimplemented"
+(**
+ * Given a string representing name of db, drops a db in the environment. 
+ * On failure, return false. On success, return true.
+ *)
+let drop_db db = 
+  try (
+    let env = !environment in 
+    environment := List.filter (fun d -> fst !d <> db) env;
+    DropDBResponse(true, "Success")
+  ) with 
+    | _ -> DropDBResponse(false, "Something went wrong with dropping a db")
 
+(**
+ * Given a string representing name of col, drops a col in the environment. 
+ * On failure, return false. On success, return true.
+ *)
+let drop_col db col = 
+  try (
+    let db_ref = get_db_ref db in 
+    let db = !db_ref in 
+    db_ref := (fst db, List.filter (fun c -> (fst !c <> col)) (snd db));
+    DropColResponse(true, "Success")
+  ) with 
+    | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
+(**
+ * Given a doc representing criteria to query on, removes all appropriate docs in the environment. 
+ * On failure, return false. On success, return true.
+ *)
+let remove_doc db col query_doc = 
+  try (
+    let col_ref = db |> get_db_ref |> get_col_ref col in 
+    let col = !col_ref in 
+    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
+    RemoveDocResponse(true, "Success")
+  ) with 
+    | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
 (**
  * Given a string representing a query JSON, looks for matching docs in the environment. 
  * On failure, return false. On success, return true.
  *)
-let query_col db col query_doc = failwith "Unimplemented"
+let query_col db col query_doc = 
+  try (
+    let col = !(db |> get_db_ref |> get_col_ref col) in 
+    let query_result = List.filter (fun d -> check_doc d query_doc) (snd col) in
+    let query_string = `List(query_result) |> pretty_to_string in 
+    QueryResponse(true, query_string)
+  ) with 
+    | _ -> QueryResponse(false, "Query failed for some reason")
