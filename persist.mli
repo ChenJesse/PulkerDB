@@ -21,3 +21,14 @@ val write_db: db -> unit
  * Each database will have its own directory
  *)
 val write_env: catalog -> unit
+
+(*
+ * Given a db name and collection name, saves the collection in the environment
+ *)
+val read_collection: string -> string -> unit
+
+(*
+ * Given a db name and environment, saves the db
+ * and all its collections in the environment
+ *)
+val read_db: string -> catalog -> unit

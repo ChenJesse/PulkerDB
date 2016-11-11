@@ -8,7 +8,7 @@ open Yojson.Basic
  *             | `Int of int
  *             | `List of json list
  *             | `Null
- *             | `String of string ] 
+ *             | `String of string ]
  *)
 type doc = Yojson.Basic.json
 
@@ -28,44 +28,48 @@ type response = | CreateDBResponse of bool * string
 
 val environment : catalog
 
+val get_db_ref: string -> db
+
+val get_col_ref: string -> db -> col
+
 (**
- * Given a doc, creates a doc in the environment. 
+ * Given a doc, creates a doc in the environment.
  * On failure, return false. On success, return true.
  *)
 val create_doc : string -> string -> doc -> response
 
 (**
- * Given a string representing name of db, creates a db in the environment. 
+ * Given a string representing name of db, creates a db in the environment.
  * On failure, return false. On success, return true.
  *)
 val create_db : string -> response
 
 (**
- * Given a string representing name of col, creates a col in the environment. 
+ * Given a string representing name of col, creates a col in the environment.
  * On failure, return false. On success, return true.
  *)
 val create_col : string -> string -> response
 
 (**
- * Given a doc representing criteria to query on, removes all appropriate docs in the environment. 
+ * Given a doc representing criteria to query on, removes all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
 val remove_doc : string -> string -> doc -> response
 
 (**
- * Given a string representing name of db, drops a db in the environment. 
+ * Given a string representing name of db, drops a db in the environment.
  * On failure, return false. On success, return true.
  *)
 val drop_db : string -> response
 
 (**
- * Given strings representing names of db and col, drops a col in the environment. 
+ * Given strings representing names of db and col, drops a col in the environment.
  * On failure, return false. On success, return true.
  *)
 val drop_col : string -> string -> response
 
 (**
- * Given a string representing a query JSON, looks for matching docs in the environment. 
+ * Given a string representing a query JSON, looks for matching docs in the environment.
  * On failure, return false. On success, return true.
  *)
 val query_col : string -> string -> doc -> response
