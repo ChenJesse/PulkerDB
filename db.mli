@@ -25,6 +25,8 @@ type response = | CreateDBResponse of bool * string
   | DropDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
+  | ParseErrorResponse of bool * string
+
 
 val environment : catalog
 

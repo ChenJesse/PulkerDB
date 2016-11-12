@@ -76,21 +76,26 @@ let tuplize_input input =
  * Parses the input from the REPL, and calls the appropriate function
  *)
 let parse input = 
-  let i = sanitize_input input in 
-  match (String.contains i ' ') with 
-    | true -> handle_use_db i
-    | false -> match (tuplize_input i) with 
-      | Triple (a, b, c) -> ( match b with 
-        | "dropdatabase" -> drop_db a
-        | "createcollection" -> create_col a c
-        | _ -> raise ParseError
-      )
-      | Quad (a, b, c, d) -> (match c with 
-        | "drop" -> drop_col a b
-        | "insert" -> parse_json d |> create_doc a b
-        | "find" -> parse_json d |> query_col a b
-        | "update" -> failwith "Unimplemented" (* TODO: Not sure how to handle multiple parameters *)
-        | "remove" -> parse_json d |> remove_doc a b
-        | _ -> raise ParseError
-      ) 
-      | _ -> failwith "Improper tuple"
+  try (
+    let i = sanitize_input input in 
+    match (Str.string_match (Str.regexp "use") i 0) with 
+      | true -> handle_use_db i
+      | false -> 
+        if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
+        else match (tuplize_input i) with 
+        | Triple (a, b, c) -> ( match b with 
+          | "dropdatabase" -> drop_db a
+          | "createcollection" -> create_col a c
+          | _ -> raise ParseError
+        )
+        | Quad (a, b, c, d) -> (match c with 
+          | "drop" -> drop_col a b
+          | "insert" -> parse_json d |> create_doc a b
+          | "find" -> parse_json d |> query_col a b
+          | "update" -> failwith "Unimplemented" (* TODO: Not sure how to handle multiple parameters *)
+          | "remove" -> parse_json d |> remove_doc a b
+          | _ -> raise ParseError
+        ) 
+        | _ -> failwith "Improper tuple"
+  ) with 
+    | _ -> ParseErrorResponse(false, "Invalid command")
