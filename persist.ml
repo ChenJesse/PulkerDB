@@ -1,4 +1,10 @@
-let write_collection db_name col_name docs =
+let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
+  match doc_list with
+    | [] -> `List(acc)
+    | h::t -> list_to_doc t (h::acc)
+
+let write_collection db_name col_name doc_list =
+  let docs = list_to_doc doc_list [] in
   let docs_json = `Assoc([("entries", docs)]) in
   let filepath = db_name ^ "/" ^ col_name ^ ".txt" in
   Yojson.Basic.to_file filepath docs_json
@@ -26,10 +32,23 @@ let get_docs json = match json with
     in helper x []
   | _ -> failwith "expected a json of `List"
 
+(* [txt filename] Given a filename, returns true if filename has a
+ * .txt extension.
+ * requires:
+ *   - [filename] is a string
+ *)
+let txt filename =
+  let len = String.length filename in
+  if len < 4 then
+    false
+  else
+    Str.string_match (Str.regexp "\\.txt$") filename (len-4)
+
+
 let read_collection db_name db_ref col_name =
   match create_col db_name col_name with
     | CreateColResponse(true, _) ->
-      let path = db_name ^ "/" ^ col_name ^ ".txt" in
+      let path = db_name ^ "/" ^ col_name in
       let doc_list = path |> Yojson.Basic.from_file
         |> Yojson.Basic.Util.member "entries"  |> get_docs in
       let old_col = (get_col_ref col_name db_ref) in
@@ -44,8 +63,12 @@ let read_db db_name =
       let rec helper dir_handle =
         try
           let file = Unix.readdir dir_handle in
-          read_collection db_name (get_db_ref db_name) file;
-          helper dir
+          if txt file then (
+            read_collection db_name (get_db_ref db_name) file;
+            helper dir
+          )
+          else
+            helper dir
         with
           | End_of_file -> ()
       in helper dir
