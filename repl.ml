@@ -27,6 +27,8 @@ let rec loop input =
     | QueryResponse (x, output) ->
       if x then print_endline output
       else print_endline "Query failed"
+    | ParseErrorResponse(x, output) -> 
+      print_endline "Parsing failed"
   );
   let new_input = read_line () in
   loop new_input
