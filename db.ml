@@ -70,7 +70,6 @@ let create_db db =
     | true -> CreateDBResponse(false, "Database with same name already exists")
     | false -> try (
         environment := (ref (db, []))::(!environment);
-        print_endline ("environment's length in create is " ^ string_of_int (List.length !environment));
         CreateDBResponse(true, "Success!")
       ) with
       | _ -> CreateDBResponse(false, "Problem with storing database")
@@ -196,7 +195,7 @@ let check_doc doc query_doc =
 let drop_db db =
   try (
     let env = !environment in
-    let db_exists = List.exists (fun d -> fst !d = db) env in 
+    let db_exists = List.exists (fun d -> fst !d = db) env in
     if db_exists then (
       environment := List.filter (fun d -> fst !d <> db) env;
       DropDBResponse(true, "Success!")
@@ -204,7 +203,7 @@ let drop_db db =
       raise DropException
     )
   ) with
-    | DropException -> DropDBResponse(false, (db ^ " does not exist.")) 
+    | DropException -> DropDBResponse(false, (db ^ " does not exist."))
     | _ -> DropDBResponse(false, "Something went wrong with dropping a db")
 
 (**
@@ -215,11 +214,11 @@ let drop_col db col =
   try (
     let db_ref = get_db_ref db in
     let db = !db_ref in
-    let col_exists = List.exists (fun c -> (fst !c = col)) (snd db) in 
+    let col_exists = List.exists (fun c -> (fst !c = col)) (snd db) in
     if col_exists then (
       db_ref := (fst db, List.filter (fun c -> (fst !c <> col)) (snd db));
       DropColResponse(true, "Success!")
-    ) else 
+    ) else
       DropColResponse(false, (col ^ " does not exist."))
   ) with
     | _ -> DropColResponse(false, "Something went wrong with dropping a collection")

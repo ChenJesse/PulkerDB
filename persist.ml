@@ -1,3 +1,5 @@
+open Db
+
 let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
   match doc_list with
     | [] -> `List(acc)
@@ -20,9 +22,11 @@ let write_db db_ref =
       helper t
   in helper col_refs
 
-let rec write_env env = match env with
-  | [] -> ()
-  | h::t -> write_db h; write_env t
+let write_env env_ref =
+  let rec helper env = match env with
+    | [] -> ()
+    | h::t -> write_db h; helper t
+  in helper !env_ref
 
 let get_docs json = match json with
   | `List x ->

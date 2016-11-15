@@ -2,7 +2,7 @@ open OUnit2
 open Interpreter
 open Db
 
-let jsonify res = match res with 
+let jsonify res = match res with
   | QueryResponse (_, json) -> print_endline json;parse_json json
   | _ -> failwith ""
 
@@ -125,6 +125,6 @@ let persist_tests = [
 
 let suite =
   "PulkerDB Test Suite"
-  >::: interpreter_tests@db_tests
+  >::: interpreter_tests@db_tests@persist_tests
 
 let _ = run_test_tt_main suite

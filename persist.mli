@@ -23,12 +23,13 @@ val write_db: db -> unit
 val write_env: catalog -> unit
 
 (*
- * Given a db name and collection name, saves the collection in the environment
+ * Given a db name, db, and a collection name,
+ * saves the collection in the environment
  *)
-val read_collection: string -> string -> unit
+val read_collection: string -> db -> string -> unit
 
 (*
- * Given a db name and environment, saves the db
+ * Given a db name, reads the db from disc and saves the db
  * and all its collections in the environment
  *)
-val read_db: string -> catalog -> unit
+val read_db: string -> unit
