@@ -27,6 +27,10 @@ type response = CreateDBResponse of bool * string
   | QueryResponse of bool * string
   | ParseErrorResponse of bool * string
 
+exception DropException
+exception LocateDBException
+exception LocateColException
+
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
 
@@ -36,23 +40,25 @@ let environment : catalog = ref []
 
 let get_db_ref db =
   try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with
-    | _ -> failwith "Could not locate database"
+    | _ -> raise LocateDBException
 
 let get_col_ref (col:string) (db:db) =
   try (!db |> snd |> List.filter (fun x -> (fst !x) = col) |> List.hd) with
-    | _ -> failwith "Could not locate collection"
+    | _ -> raise LocateColException
 
 (**
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.
  *)
 let create_doc db col doc =
-  let col_ref = db |> get_db_ref |> get_col_ref col in
   try (
+    let col_ref = db |> get_db_ref |> get_col_ref col in
     col_ref := (fst !col_ref, doc::(snd !col_ref));
-    CreateDocResponse(true, "Success")
+    CreateDocResponse(true, "Success!")
   ) with
-  | _ -> CreateDocResponse(false, "Problem with storing document")
+  | LocateDBException -> CreateDocResponse(false, (db ^ " was not found."))
+  | LocateColException -> CreateDocResponse(false, (col ^ " was not found."))
+  | _ -> CreateDocResponse(false, "Something went wrong with storing the document.")
 
 
 (**
@@ -63,8 +69,8 @@ let create_db db =
   match (List.exists (fun x -> (fst !x) = db) !environment) with
     | true -> CreateDBResponse(false, "Database with same name already exists")
     | false -> try (
-        environment := (ref (db, []))::!environment ;
-        CreateDBResponse(true, "Success")
+        environment := (ref (db, []))::!environment;
+        CreateDBResponse(true, "Success!")
       ) with
       | _ -> CreateDBResponse(false, "Problem with storing database")
 
@@ -75,12 +81,12 @@ let create_db db =
 let create_col db col =
   let db = get_db_ref db in
   match (snd !db |> List.exists (fun x -> (fst !x) = col)) with
-    | true -> CreateColResponse(false, "Collection with same name already exists")
+    | true -> CreateColResponse(false, (col ^ " already exists."))
     | false -> try (
         db := (fst !db, (ref (col, []))::(snd !db));
-        CreateColResponse(true, "Success")
+        CreateColResponse(true, "Success!")
       ) with
-      | _ -> CreateColResponse(false, "Problem with storing collection")
+      | _ -> CreateColResponse(false, "Something went wrong with storing the collection.")
 
 (* Returns true if the doc is a nested json*)
 let nested_json doc = match doc with
@@ -189,9 +195,15 @@ let check_doc doc query_doc =
 let drop_db db =
   try (
     let env = !environment in
-    environment := List.filter (fun d -> fst !d <> db) env;
-    DropDBResponse(true, "Success")
+    let db_exists = List.exists (fun d -> fst !d = db) env in 
+    if db_exists then (
+      environment := List.filter (fun d -> fst !d <> db) env;
+      DropDBResponse(true, "Success!")
+    ) else (
+      raise DropException
+    )
   ) with
+    | DropException -> DropDBResponse(false, (db ^ " does not exist.")) 
     | _ -> DropDBResponse(false, "Something went wrong with dropping a db")
 
 (**
@@ -202,8 +214,12 @@ let drop_col db col =
   try (
     let db_ref = get_db_ref db in
     let db = !db_ref in
-    db_ref := (fst db, List.filter (fun c -> (fst !c <> col)) (snd db));
-    DropColResponse(true, "Success")
+    let col_exists = List.exists (fun c -> (fst !c = col)) (snd db) in 
+    if col_exists then (
+      db_ref := (fst db, List.filter (fun c -> (fst !c <> col)) (snd db));
+      DropColResponse(true, "Success!")
+    ) else 
+      DropColResponse(false, (col ^ " does not exist."))
   ) with
     | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
 (**
@@ -215,7 +231,7 @@ let remove_doc db col query_doc =
     let col_ref = db |> get_db_ref |> get_col_ref col in
     let col = !col_ref in
     col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
-    RemoveDocResponse(true, "Success")
+    RemoveDocResponse(true, "Success!")
   ) with
     | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
 (**

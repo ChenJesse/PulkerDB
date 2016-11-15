@@ -1,6 +1,7 @@
 open Repl
 open Interpreter
 open Db
+open Str
 
 let () =
   ANSITerminal.(print_string [red] 
