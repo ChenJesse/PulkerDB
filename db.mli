@@ -1,22 +1,5 @@
 open Yojson.Basic
-
-(**
- * Taken from Yojson.Basic documentation:
- * type json = [ `Assoc of (string * json) list
- *             | `Bool of bool
- *             | `Float of float
- *             | `Int of int
- *             | `List of json list
- *             | `Null
- *             | `String of string ]
- *)
-type doc = Yojson.Basic.json
-
-type col = (string * doc list) ref
-
-type db = (string * col list) ref
-
-type catalog = (db list) ref
+open Persist
 
 type response = | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
@@ -26,7 +9,6 @@ type response = | CreateDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
   | ParseErrorResponse of bool * string
-
 
 val environment : catalog
 

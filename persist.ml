@@ -1,4 +1,20 @@
-open Db
+(**
+ * Taken from Yojson.Basic documentation:
+ * type json = [ `Assoc of (string * json) list
+ *             | `Bool of bool
+ *             | `Float of float
+ *             | `Int of int
+ *             | `List of json list
+ *             | `Null
+ *             | `String of string ]
+ *)
+type doc = Yojson.Basic.json
+
+type col = (string * doc list) ref
+
+type db = (string * col list) ref
+
+type catalog = (db list) ref
 
 let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
   match doc_list with
@@ -48,8 +64,7 @@ let txt filename =
   else
     Str.string_match (Str.regexp "\\.txt$") filename (len-4)
 
-
-let read_collection db_name db_ref col_name =
+(* let read_collection db_name db_ref col_name =
   match create_col db_name col_name with
     | CreateColResponse(true, _) ->
       let path = db_name ^ "/" ^ col_name in
@@ -58,23 +73,26 @@ let read_collection db_name db_ref col_name =
       let old_col = (get_col_ref col_name db_ref) in
       old_col := ( (fst !old_col), doc_list)
     | CreateColResponse(false, x) -> failwith x
-    | _ -> failwith "unexpected response"
+    | _ -> failwith "unexpected response" *)
 
-let read_db db_name =
-  match create_db db_name with
-    | CreateDBResponse(true, _) ->
-      let dir = Unix.opendir db_name in
-      let rec helper dir_handle =
-        try
-          let file = Unix.readdir dir_handle in
-          if txt file then (
-            read_collection db_name (get_db_ref db_name) file;
-            helper dir
-          )
-          else
-            helper dir
-        with
-          | End_of_file -> ()
-      in helper dir
-    | CreateDBResponse(false, x) -> failwith x
-    | _ -> failwith "unexpected response"
+let read_collection db_name col_name col_ref =
+  let path = db_name ^ "/" ^ col_name in
+  let doc_list = path |> Yojson.Basic.from_file
+    |> Yojson.Basic.Util.member "entries"  |> get_docs in
+  col_ref := ( (fst !col_ref), doc_list)
+
+let read_db db_name db_ref =
+  let dir = Unix.opendir db_name in
+  let rec helper dir_handle =
+    try
+      let file = Unix.readdir dir_handle in
+      if txt file then (
+        let new_col = ref (file, []) in 
+        read_collection db_name file new_col;
+        helper dir
+      )
+      else
+        helper dir
+    with
+      | End_of_file -> ()
+  in helper dir

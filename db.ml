@@ -1,4 +1,5 @@
 open Yojson.Basic
+open Persist
 
 (**
  * Taken from Yojson.Basic documentation:
@@ -39,8 +40,10 @@ type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
 let environment : catalog = ref []
 
 let get_db_ref db =
-  try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with
-    | _ -> raise LocateDBException
+  try (
+    try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with
+      | _ -> read_db db; (List.filter (fun x -> (fst !x) = db) !environment |> List.hd)
+  ) with | _ -> raise LocateDBException
 
 let get_col_ref (col:string) (db:db) =
   try (!db |> snd |> List.filter (fun x -> (fst !x) = col) |> List.hd) with
