@@ -69,7 +69,8 @@ let create_db db =
   match (List.exists (fun x -> (fst !x) = db) !environment) with
     | true -> CreateDBResponse(false, "Database with same name already exists")
     | false -> try (
-        environment := (ref (db, []))::!environment;
+        environment := (ref (db, []))::(!environment);
+        print_endline ("environment's length in create is " ^ string_of_int (List.length !environment));
         CreateDBResponse(true, "Success!")
       ) with
       | _ -> CreateDBResponse(false, "Problem with storing database")

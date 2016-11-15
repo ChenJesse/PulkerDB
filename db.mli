@@ -75,3 +75,5 @@ val drop_col : string -> string -> response
  * On failure, return false. On success, return true.
  *)
 val query_col : string -> string -> doc -> response
+
+val check_doc : doc -> doc -> bool

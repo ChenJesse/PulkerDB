@@ -84,14 +84,14 @@ let parse input =
         if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
         else match (tuplize_input i) with 
         | Triple (a, b, c) -> ( match b with 
-          | "dropdatabase" -> drop_db a
+          | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
           | "createcollection" -> create_col a c
           | _ -> raise ParseError
         )
         | Quad (a, b, c, d) -> (match c with 
-          | "drop" -> drop_col a b
+          | "drop" -> if d = "" then drop_col a b else raise ParseError
           | "insert" -> parse_json d |> create_doc a b
-          | "find" -> parse_json d |> query_col a b
+          | "find" -> if d = "" then parse_json d |> query_col a b else raise ParseError
           | "update" -> failwith "Unimplemented" (* TODO: Not sure how to handle multiple parameters *)
           | "remove" -> parse_json d |> remove_doc a b
           | _ -> raise ParseError

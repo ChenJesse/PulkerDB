@@ -17,51 +17,114 @@ db.COLLECTION_NAME.update(SELECTION_CRITERIA, UPDATED_DATA)
 db.COLLECTION_NAME.remove(DELLETION_CRITERIA)
 *)
 let interpreter_tests = [
-  "useDB" >:: (fun _ -> assert_equal (Db.CreateDBResponse (true, "Success!"))
-    (parse "use test"));
-  "dropDB1" >:: (fun _ -> assert_equal (Db.DropDBResponse (false, "test does not exist."))
-    (parse "test.dropDatabase()"));
-  "dropDB2" >:: (fun _ -> assert_equal (Db.DropDBResponse (true, "Success!"))
-    (parse "use test"; parse "test.dropDatabase()"));
-  "createCol1" >:: (fun _ -> assert_equal (Db.CreateColResponse (true, "Success!"))
-    (parse "use test"; parse "test.createCollection(testCol)"));
-  "createCol2" >:: (fun _ -> assert_equal (Db.CreateColResponse (true, "Success!"))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.createCollection(testCol2)"));
-  "createCol3" >:: (fun _ -> assert_equal (Db.CreateColResponse (false, "testcol2 already exists."))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.createCollection(testCol2)"; parse "test.createCollection(testCol2)"));
-  "dropCol1" >:: (fun _ -> assert_equal (Db.DropColResponse (true, "Success!"))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.testCol.drop()"));
-  "dropCol2" >:: (fun _ -> assert_equal (Db.DropColResponse (false, "asdf does not exist."))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.asdf.drop()"));
-  "createDoc1" >:: (fun _ -> assert_equal (Db.CreateDocResponse (true, "Success!"))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.testCol.insert({})"));
-  "createDoc2" >:: (fun _ -> assert_equal (Db.CreateDocResponse (false, "asdf was not found."))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "asdf.testCol.insert({})"));
-  "createDoc3" >:: (fun _ -> assert_equal (Db.CreateDocResponse (false, "fdsa was not found."))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.fdsa.insert({})"));
-  "createDoc4" >:: (fun _ -> assert_equal (Db.CreateDocResponse (true, "Success!"))
-    (parse "use test"; parse "test.createCollection(testCol)"; parse "test.testCol.insert({a: 1, b: 2, c: 3})"));
-  "createDoc4" >:: (fun _ -> assert_equal (Db.CreateDocResponse (true, "Success!"))
-    (parse "use test"; parse "test.createCollection(testCol)"; 
-    parse "test.testCol.insert({a: 1, b: 2, c: 3})"; parse "test.testCol.insert({a: {b: {c: 5}}})"));
-(*   "find1" >:: (fun _ -> assert_equal (parse_json "[ { \"a\": 1, \"b\": 2, \"c\": 3 } ]")
-    (parse "use test"; parse "test.createCollection(testCol)"; 
-    parse "test.testCol.insert({a: 1, b: 2, c: 3})"; 
-    parse "test.testCol.insert({a: {b: {c: 3}}, b: 2})"; 
-    parse "test.testCol.find({a: 1})" |> jsonify)); *)
+  "dropDB" >:: (fun _ -> assert_equal (Triple("db", "dropDatabase", ""))
+    (tuplize_input "db.dropDatabase()"));
+  "createCol" >:: (fun _ -> assert_equal (Triple("db", "createCollection", "name"))
+    (tuplize_input "db.createCollection(name)"));
+  "dropCol" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "drop", ""))
+    (tuplize_input "db.COLLECTION_NAME.drop()"));
+  "insertDoc" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "drop", ""))
+    (tuplize_input "db.COLLECTION_NAME.drop()"));
+  "find" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "find", ""))
+    (tuplize_input "db.COLLECTION_NAME.find()"));
+  "remove" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "remove", "{asdf}"))
+    (tuplize_input "db.COLLECTION_NAME.remove({asdf})"));
 ]
 
 let db_tests = [
-
+  "test1" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1}")));
+  "test2" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 0}")));
+  "test3" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: 3}")));
+  "test4" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: 2}")));
+  "test5" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: {\"$lte\": 3}}")));
+  "test6" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: {\"$lt\": 3}}")));
+  "test7" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: {\"$gt\": 2}}")));
+  "test8" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: {\"$gt\": 3}}")));
+  "test9" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: {\"$ne\": 2}}")));
+  "test10" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: {\"$ne\": 3}}")));
+  "test11" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: 5}}")));
+  "test12" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: 6}}")));
+  "test13" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: 5, d: \"asdf\"}}")));
+  "test14" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: 5, d: \"asdff\"}}")));
+  "test15" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$lt\": 6}, d: \"asdf\"}}")));
+  "test16" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$gt\": 6}, d: \"asdf\"}}")));
+  "test17" >:: (fun _ -> assert_equal true
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$lt\": 6}, d: {\"$gt\": \"a\"}}}")));
 ]
 
+let test_doc = `Assoc([("key", `String("value"))])
+let test_col = ref ("test_col", test_doc::[])
+let test_db = ref ("test_db", test_col::[])
+let test_env = ref (test_db::[])
+
+let test_db2 : Db.db = ref ("test_db2", [])
+let test_env2 = ref (test_db2::[])
+
+let test_col3 : Db.col = ref ("test_col3", [])
+let test_db3 = ref ("test_db3", test_col3::[])
+let test_env3 = ref (test_db3::[])
+
 let persist_tests = [
-  
+  "writes env to disc and reads from it" >:: (fun _ ->
+    Persist.write_env test_env;
+    assert (Sys.is_directory "test_db");
+    Persist.read_db "test_db";
+    let env = !Db.environment in
+    assert (env <> []);
+    let db = !(List.hd env) in
+    assert (fst db = "test_db");
+    let col = !( (snd db) |> List.hd ) in
+    assert (fst col = "test_col.txt");
+    assert (snd col = [`Assoc([("key", `String("value"))])]);
+    Sys.remove "test_db/test_col.txt";
+    Unix.rmdir "test_db"
+  );
+  "empty db" >:: (fun _ ->
+    Persist.write_env (test_env2);
+    assert (Sys.is_directory "test_db2");
+    Persist.read_db "test_db2";
+    let env = !Db.environment in
+    assert (env <> []);
+    let db = !(List.hd env) in
+    assert (fst db = "test_db2");
+    assert (snd db = []);
+    Unix.rmdir "test_db2"
+  );
+  "empty col" >:: (fun _ ->
+    Persist.write_env (test_env3);
+    assert (Sys.is_directory "test_db3");
+    Persist.read_db "test_db3";
+    let env = !Db.environment in
+    assert (env <> []);
+    let db = !(List.hd env) in
+    assert (fst db = "test_db3");
+    let col = ! ( (snd db) |> List.hd ) in
+    assert (fst col = "test_col3.txt");
+    assert (snd col = []);
+    Sys.remove "test_db3/test_col3.txt";
+    Unix.rmdir "test_db3"
+  )
 ]
 
 
 let suite =
   "PulkerDB Test Suite"
-  >::: interpreter_tests
+  >::: interpreter_tests@db_tests
 
 let _ = run_test_tt_main suite
