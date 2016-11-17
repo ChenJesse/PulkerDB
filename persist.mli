@@ -1,4 +1,20 @@
-open Db
+(**
+ * Taken from Yojson.Basic documentation:
+ * type json = [ `Assoc of (string * json) list
+ *             | `Bool of bool
+ *             | `Float of float
+ *             | `Int of int
+ *             | `List of json list
+ *             | `Null
+ *             | `String of string ]
+ *)
+type doc = Yojson.Basic.json
+
+type col = (string * doc list) ref
+
+type db = (string * col list) ref
+
+type catalog = (db list) ref
 
 (*
  * Writes a collection to a json file.
@@ -21,3 +37,15 @@ val write_db: db -> unit
  * Each database will have its own directory
  *)
 val write_env: catalog -> unit
+
+(*
+ * Given a collection name col, a db name db, and a collection ref,
+ * saves the collection from db.col in the ref
+ *)
+val read_collection: string -> string -> col -> unit
+
+(*
+ * Given a db name, reads the db from disc and saves the db
+ * to the ref
+ *)
+val read_db: string -> db -> unit

@@ -1,9 +1,10 @@
 #require "yojson";;
 
 #directory "_build";;
+#load "str.cma";;
+#load "persist.cmo";;
 #load "db.cmo";;
 #load "interpreter.cmo";;
-#use "main.ml";;
 #use "interpreter.ml";;
 #use "db.ml";;
 #use "repl.ml";;

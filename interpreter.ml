@@ -1,5 +1,6 @@
 open Yojson.Basic
 open Db
+open Persist
 
 type tuple = 
   | Nil 
@@ -11,6 +12,7 @@ type tuple =
 type response = Db.response
 
 exception ParseError
+exception ImproperNameError
 
 (**
  * given a valid string of a JSON, will output
@@ -23,11 +25,21 @@ let parse_json json_string = from_string json_string
  *)
 let sanitize_input input = String.(trim input |> lowercase_ascii)
 
+(** Check that the collection or database name is valid *)
+let validate_name input = 
+  not (String.(contains input ' ' || contains input '(' || contains input ')'))
+
 (**
  * Returns a string containing everything before
  * the first instance of c in input
  *)
 let prefix c input = String.sub input 0 (String.index input c)
+
+(**
+ * Returns a string containing everything before
+ * the last instance of c in input
+ *)
+let rprefix c input = String.sub input 0 (String.rindex input c)
 
 (**
  * Returns a string containing everything after 
@@ -43,7 +55,8 @@ let handle_use_db input =
   let command = prefix ' ' input in 
   let database = suffix ' ' input in 
   match command with 
-    | "use" -> create_db database (* Should we allow spaces in db name? *)
+    | "use" -> if (validate_name database) then create_db database 
+               else raise ImproperNameError
     | _ -> raise ParseError
 
 (**
@@ -58,7 +71,7 @@ let tuplize_input input =
         | _ -> failwith "Not proper tuple")
       | _ -> 
         let (add, remainder) = 
-          if (String.get i 0) = '(' then ((prefix ')' i |> suffix '('), "")
+          if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
           else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
           else if (String.contains i '(') then ((prefix '(' i), ("(" ^ (suffix '(' i)))
           else (i, "")
@@ -76,21 +89,28 @@ let tuplize_input input =
  * Parses the input from the REPL, and calls the appropriate function
  *)
 let parse input = 
-  let i = sanitize_input input in 
-  match (String.contains i ' ') with 
-    | true -> handle_use_db i
-    | false -> match (tuplize_input i) with 
-      | Triple (a, b, c) -> ( match b with 
-        | "dropdatabase" -> drop_db a
-        | "createcollection" -> create_col a c
-        | _ -> raise ParseError
-      )
-      | Quad (a, b, c, d) -> (match c with 
-        | "drop" -> drop_col a b
-        | "insert" -> parse_json d |> create_doc a b
-        | "find" -> parse_json d |> query_col a b
-        | "update" -> failwith "Unimplemented" (* TODO: Not sure how to handle multiple parameters *)
-        | "remove" -> parse_json d |> remove_doc a b
-        | _ -> raise ParseError
-      ) 
-      | _ -> failwith "Improper tuple"
+  try (
+    let i = sanitize_input input in 
+    match (Str.string_match (Str.regexp "use") i 0) with 
+      | true -> handle_use_db i
+      | false -> 
+        if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
+        else match (tuplize_input i) with 
+        | Triple (a, b, c) -> ( match b with 
+          | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
+          | "createcollection" -> if (validate_name c) then create_col a c
+                                  else raise ImproperNameError
+          | _ -> raise ParseError
+        )
+        | Quad (a, b, c, d) -> (match c with 
+          | "drop" -> if d = "" then drop_col a b else raise ParseError
+          | "insert" -> parse_json d |> create_doc a b
+          | "find" -> if d = "" then parse_json d |> query_col a b else raise ParseError
+          | "update" -> failwith "Unimplemented" (* TODO: Not sure how to handle multiple parameters *)
+          | "remove" -> parse_json d |> remove_doc a b
+          | _ -> raise ParseError
+        ) 
+        | _ -> failwith "Improper tuple"
+  ) with 
+    | ParseError -> ParseErrorResponse(false, "Invalid command")
+    | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name")
