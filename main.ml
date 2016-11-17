@@ -5,6 +5,8 @@ open Str
 
 let () =
   ANSITerminal.(print_string [red] 
-    "\n\nWelcome to PulkerDB, the poor man's MongoDB.\n");
+    "\n\n     Welcome to PulkerDB, a NoSQL database.     
+              Press -help for a list of commands.\n");
+  print_arrow ();
   let first_input = read_line () in
   loop first_input

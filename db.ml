@@ -225,6 +225,20 @@ let drop_col db col =
       DropColResponse(false, (col ^ " does not exist."))
   ) with
     | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
+
+(**
+ * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
+ * On failure, return false. On success, return true.
+ *)
+let update_col db col query_doc =
+  try (
+    let col_ref = db |> get_db_ref |> get_col_ref col in
+    let col = !col_ref in
+    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
+    RemoveDocResponse(true, "Success!")
+  ) with
+    | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
+
 (**
  * Given a doc representing criteria to query on, removes all appropriate docs in the environment.
  * On failure, return false. On success, return true.
@@ -237,6 +251,7 @@ let remove_doc db col query_doc =
     RemoveDocResponse(true, "Success!")
   ) with
     | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
+
 (**
  * Given a string representing a query JSON, looks for matching docs in the environment.
  * On failure, return false. On success, return true.

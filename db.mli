@@ -29,7 +29,7 @@ val create_doc : string -> string -> doc -> response
 val create_db : string -> response
 
 (**
- * Given a string representing name of col, creates a col in the environment.
+ * Given a string representing name of col, creates a col in the environment, within the specified db.
  * On failure, return false. On success, return true.
  *)
 val create_col : string -> string -> response
@@ -39,6 +39,13 @@ val create_col : string -> string -> response
  * On failure, return false. On success, return true.
  *)
 val remove_doc : string -> string -> doc -> response
+
+(**
+ * Given a string representing name of db and col, creates updates the documents within the col
+ * based on the query criteria in the doc.
+ * On failure, return false. On success, return true.
+ *)
+val update_col : string -> string -> doc -> response
 
 (**
  * Given a string representing name of db, drops a db in the environment.

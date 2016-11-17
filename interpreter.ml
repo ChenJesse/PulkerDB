@@ -12,6 +12,7 @@ type tuple =
 type response = Db.response
 
 exception ParseError
+exception ImproperNameError
 
 (**
  * given a valid string of a JSON, will output
@@ -24,11 +25,21 @@ let parse_json json_string = from_string json_string
  *)
 let sanitize_input input = String.(trim input |> lowercase_ascii)
 
+(** Check that the collection or database name is valid *)
+let validate_name input = 
+  not (String.(contains input ' ' || contains input '(' || contains input ')'))
+
 (**
  * Returns a string containing everything before
  * the first instance of c in input
  *)
 let prefix c input = String.sub input 0 (String.index input c)
+
+(**
+ * Returns a string containing everything before
+ * the last instance of c in input
+ *)
+let rprefix c input = String.sub input 0 (String.rindex input c)
 
 (**
  * Returns a string containing everything after 
@@ -44,7 +55,8 @@ let handle_use_db input =
   let command = prefix ' ' input in 
   let database = suffix ' ' input in 
   match command with 
-    | "use" -> create_db database (* Should we allow spaces in db name? *)
+    | "use" -> if (validate_name database) then create_db database 
+               else raise ImproperNameError
     | _ -> raise ParseError
 
 (**
@@ -59,7 +71,7 @@ let tuplize_input input =
         | _ -> failwith "Not proper tuple")
       | _ -> 
         let (add, remainder) = 
-          if (String.get i 0) = '(' then ((prefix ')' i |> suffix '('), "")
+          if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
           else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
           else if (String.contains i '(') then ((prefix '(' i), ("(" ^ (suffix '(' i)))
           else (i, "")
@@ -86,7 +98,8 @@ let parse input =
         else match (tuplize_input i) with 
         | Triple (a, b, c) -> ( match b with 
           | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
-          | "createcollection" -> create_col a c
+          | "createcollection" -> if (validate_name c) then create_col a c
+                                  else raise ImproperNameError
           | _ -> raise ParseError
         )
         | Quad (a, b, c, d) -> (match c with 
@@ -99,4 +112,5 @@ let parse input =
         ) 
         | _ -> failwith "Improper tuple"
   ) with 
-    | _ -> ParseErrorResponse(false, "Invalid command")
+    | ParseError -> ParseErrorResponse(false, "Invalid command")
+    | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name")

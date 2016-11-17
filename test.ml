@@ -66,8 +66,10 @@ let db_tests = [
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$gt\": 6}, d: \"asdf\"}}")));
   "test17" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$lt\": 6}, d: {\"$gt\": \"a\"}}}")));
+  "test17" >:: (fun _ -> assert_equal false
+    (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$ltt\": 6}, d: {\"$gt\": \"a\"}}}")));
 ]
-
+(* 
 let test_doc = `Assoc([("key", `String("value"))])
 let test_col = ref ("test_col", test_doc::[])
 let test_db = ref ("test_db", test_col::[])
@@ -121,10 +123,10 @@ let persist_tests = [
     Unix.rmdir "test_db3"
   )
 ]
-
+ *)
 
 let suite =
   "PulkerDB Test Suite"
-  >::: interpreter_tests@db_tests@persist_tests
+  >::: interpreter_tests@db_tests
 
 let _ = run_test_tt_main suite
