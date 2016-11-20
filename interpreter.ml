@@ -109,6 +109,7 @@ let parse input =
         )
         | Quad (a, b, c, d) -> (match c with 
           | "drop" -> if d = "" then drop_col a b else raise ParseError
+          | "show" -> if d = "" then show_col a b else raise ParseError
           | "insert" -> parse_json d |> create_doc a b
           | "find" ->  parse_json d |> query_col a b 
           | "remove" -> parse_json d |> remove_doc a b

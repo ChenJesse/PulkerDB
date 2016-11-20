@@ -28,6 +28,7 @@ type response = CreateDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
   | ParseErrorResponse of bool * string
+  | ShowColResponse of bool * string
 
 exception DropException
 exception LocateDBException
@@ -233,6 +234,18 @@ let drop_col db col =
       DropColResponse(false, (col ^ " does not exist."))
   ) with
     | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
+
+(**
+ * Given a string representing name of col, drops a col in the environment.
+ * On failure, return false. On success, return true.
+ *)
+let show_col db col =
+  try (
+    let col = !(db |> get_db_ref |> get_col_ref col) in
+    let contents = `List(snd col) |> pretty_to_string in
+    ShowColResponse(true, contents)
+  ) with
+    | _ -> ShowColResponse(false, "Something went wrong with dropping a collection")
 
 (**
  * Given a doc representing criteria to query on, removes all appropriate docs in the environment.

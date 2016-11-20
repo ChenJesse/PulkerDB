@@ -10,6 +10,7 @@ type response = | CreateDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
   | ParseErrorResponse of bool * string
+  | ShowColResponse of bool * string
 
 val environment : catalog
 
@@ -59,6 +60,12 @@ val drop_db : string -> response
  * On failure, return false. On success, return true.
  *)
 val drop_col : string -> string -> response
+
+(**
+ * Given strings representing names of db and col, prints the contents of the col.
+ * On failure, return false. On success, return true.
+ *)
+val show_col: string -> string -> response
 
 (**
  * Given a string representing a query JSON, looks for matching docs in the environment.

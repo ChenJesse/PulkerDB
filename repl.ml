@@ -56,6 +56,9 @@ let rec loop input =
     | QueryResponse (x, output) ->
       if x then print_output output
       else print_error "Query failed."
+    | ShowColResponse (x, output) -> 
+      if x then print_output output
+    else print_error "Col does not exist."
     | ParseErrorResponse(x, output) -> 
       print_error ("Parsing failed. " ^ output)
   );
