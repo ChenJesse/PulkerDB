@@ -3,11 +3,11 @@ open Db
 open Persist
 
 type tuple = 
-  | Nil 
-  | Single of string
-  | Pair of string * string
-  | Triple of string * string * string
-  | Quad of string * string * string * string
+| Nil 
+| Single of string
+| Pair of string * string
+| Triple of string * string * string
+| Quad of string * string * string * string
 
 type response = Db.response
 
@@ -66,22 +66,22 @@ let handle_use_db input =
 let tuplize_input input = 
   let rec helper acc i = 
     match i with 
-      | "" -> ( match acc with 
-        | Pair(_, _) | Triple(_, _, _) | Quad(_, _, _, _) -> acc
-        | _ -> raise ParseError)
-      | _ -> 
-        let (add, remainder) = 
-          if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
-          else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
-          else if (String.contains i '(') then ((prefix '(' i), ("(" ^ (suffix '(' i)))
-          else (i, "")
-        in 
-        match acc with 
-          | Nil -> helper (Single(add)) remainder
-          | Single a -> helper (Pair(a, add)) remainder
-          | Pair (a, b) -> helper (Triple(a, b, add)) remainder
-          | Triple (a, b, c) -> helper (Quad(a, b, c, add)) remainder
-          | Quad (_, _, _, _) -> failwith "Too many elements"
+    | "" -> ( match acc with 
+      | Pair(_, _) | Triple(_, _, _) | Quad(_, _, _, _) -> acc
+      | _ -> raise ParseError)
+    | _ -> 
+      let (add, remainder) = 
+        if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
+        else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
+        else if (String.contains i '(') then ((prefix '(' i), ("(" ^ (suffix '(' i)))
+        else (i, "")
+      in 
+      match acc with 
+      | Nil -> helper (Single(add)) remainder
+      | Single a -> helper (Pair(a, add)) remainder
+      | Pair (a, b) -> helper (Triple(a, b, add)) remainder
+      | Triple (a, b, c) -> helper (Quad(a, b, c, add)) remainder
+      | Quad (_, _, _, _) -> failwith "Too many elements"
   in 
   helper Nil input
 
@@ -97,29 +97,29 @@ let parse input =
   try (
     let i = sanitize_input input in 
     match (Str.string_match (Str.regexp "use") i 0) with 
-      | true -> handle_use_db i
-      | false -> 
-        if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
-        else match (tuplize_input i) with 
-        | Triple (a, b, c) -> ( match b with 
-          | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
-          | "createcollection" -> if (validate_name c) then create_col a c
-                                  else raise ImproperNameError
-          | _ -> raise ParseError
-        )
-        | Quad (a, b, c, d) -> (match c with 
-          | "drop" -> if d = "" then drop_col a b else raise ParseError
-          | "show" -> if d = "" then show_col a b else raise ParseError
-          | "insert" -> parse_json d |> create_doc a b
-          | "find" ->  parse_json d |> query_col a b 
-          | "remove" -> parse_json d |> remove_doc a b
-          | "replace" -> 
-            let pair = tuplize_parameters d in 
-            replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
-          | _ -> raise ParseError
-        ) 
-        | _ -> failwith "Improper tuple"
+    | true -> handle_use_db i
+    | false -> 
+      if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
+      else match (tuplize_input i) with 
+      | Triple (a, b, c) -> ( match b with 
+        | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
+        | "createcollection" -> if (validate_name c) then create_col a c
+                                else raise ImproperNameError
+        | _ -> raise ParseError
+      )
+      | Quad (a, b, c, d) -> (match c with 
+        | "drop" -> if d = "" then drop_col a b else raise ParseError
+        | "show" -> if d = "" then show_col a b else raise ParseError
+        | "insert" -> parse_json d |> create_doc a b
+        | "find" ->  parse_json d |> query_col a b 
+        | "remove" -> parse_json d |> remove_doc a b
+        | "replace" -> 
+          let pair = tuplize_parameters d in 
+          replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
+        | _ -> raise ParseError
+      ) 
+    | _ -> failwith "Improper tuple"
   ) with 
-    | ParseError -> ParseErrorResponse(false, "Invalid command")
-    | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name")
-    | _ -> ParseErrorResponse(false, "Something weird happened")
+  | ParseError -> ParseErrorResponse(false, "Invalid command")
+  | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name")
+  | _ -> ParseErrorResponse(false, "Something weird happened")

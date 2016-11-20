@@ -31,7 +31,8 @@ let help_msg = "
 let rec loop input =
   (if input = "-exit" then exit(0)
   else if input = "-help" then ANSITerminal.(print_string [green] help_msg)
-  else match parse input with
+  else 
+    match parse input with
     | CreateDBResponse (x, msg) ->
       if x then print_output "Successfully created database!"
       else print_error msg

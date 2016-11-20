@@ -1,7 +1,8 @@
 open Yojson.Basic
 open Persist
 
-type response = | CreateDBResponse of bool * string
+type response = 
+  | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
   | CreateDocResponse of bool * string
   | RemoveDocResponse of bool * string
