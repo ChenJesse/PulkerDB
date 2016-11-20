@@ -45,7 +45,7 @@ val remove_doc : string -> string -> doc -> response
  * based on the query criteria in the doc.
  * On failure, return false. On success, return true.
  *)
-val update_col : string -> string -> doc -> response
+val update_col : string -> string -> doc -> doc -> response
 
 (**
  * Given a string representing name of db, drops a db in the environment.

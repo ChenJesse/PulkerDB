@@ -86,6 +86,11 @@ let tuplize_input input =
   helper Nil input
 
 (**
+ * Will split two parameters into a tuple
+ *)
+let tuplize_parameters input = Pair(prefix '|' input, suffix '|' input)
+
+(**
  * Parses the input from the REPL, and calls the appropriate function
  *)
 let parse input = 

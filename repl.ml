@@ -23,7 +23,7 @@ let help_msg = "
 | db.COLLECTION_NAME.drop()                                   |
 | db.COLLECTION_NAME.insert(document)                         |
 | db.COLLECTION_NAME.find()                                   |
-| db.COLLECTION_NAME.update(SELECTION_CRITERIA, UPDATED_DATA) |
+| db.COLLECTION_NAME.update(SELECTION_CRITERIA | UPDATED_DATA)|
 | db.COLLECTION_NAME.remove(DELLETION_CRITERIA)               |
 --------------------------------------------------------------- \n"            
 

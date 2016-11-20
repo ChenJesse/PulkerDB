@@ -31,6 +31,7 @@ type response = CreateDBResponse of bool * string
 exception DropException
 exception LocateDBException
 exception LocateColException
+exception InvalidUpdateDocException
 
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
@@ -42,7 +43,10 @@ let environment : catalog = ref []
 let get_db_ref db =
   try (
     try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with
-      | _ -> read_db db; (List.filter (fun x -> (fst !x) = db) !environment |> List.hd)
+      | _ -> 
+      (* WHAT IS THIS SUPPOSED TO BE DOING? *)
+      let placeholder = ref ("", []) in 
+      read_db db placeholder; (List.filter (fun x -> (fst !x) = db) !environment |> List.hd)
   ) with | _ -> raise LocateDBException
 
 let get_col_ref (col:string) (db:db) =
@@ -192,6 +196,34 @@ let check_doc doc query_doc =
   | _ -> failwith "Invalid query JSON"
 
 (**
+ * Responsible for updating a document, given an update document 
+ *)
+let rec modify_doc doc update_doc = 
+  let helper doc u_doc = 
+    let (u_key, u_value) = match u_doc with 
+      | `Assoc lst -> List.hd lst 
+      | _ -> raise InvalidUpdateDocException
+    in 
+    let lst = match doc with 
+      | `Assoc lst -> lst 
+      | _ -> failwith "Should not be here"
+    in 
+    (* Constructing the updated doc *)
+    ([(`Assoc (
+      List.map (fun pair -> match (fst pair) = u_key with 
+        | true -> (
+              match snd pair with 
+              | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value) 
+              | _ -> (fst pair, u_value)
+            ) 
+        | false -> pair) lst
+    ))], "asdf")
+  in 
+  match update_doc with 
+    | `Assoc lst -> failwith "wtf" (* Should only have one assoc pair *)
+    | _ -> raise InvalidUpdateDocException
+
+(**
  * Given a string representing name of db, drops a db in the environment.
  * On failure, return false. On success, return true.
  *)
@@ -227,17 +259,36 @@ let drop_col db col =
     | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
 
 (**
- * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
+ * Given a doc representing criteria to query on, removes all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
-let update_col db col query_doc =
+let remove_and_get_doc db col query_doc =
   try (
     let col_ref = db |> get_db_ref |> get_col_ref col in
     let col = !col_ref in
+    let query = List.filter (fun d -> not (check_doc d query_doc)) (snd col) in 
     col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
+    query
+  ) with
+    | _ -> []
+
+(**
+ * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
+ * On failure, return false. On success, return true.
+ *)
+let update_col db col query_doc update_doc =
+  try (
+    let col_ref = db |> get_db_ref |> get_col_ref col in
+    let u_doc = match Util.member "$set" update_doc with 
+      | `Assoc json -> json 
+      | _ -> raise InvalidUpdateDocException in 
+    let query = remove_and_get_doc db col query_doc in 
+    let col = !col_ref in
+    col_ref := (fst col, (snd col)@(List.map (fun json -> (modify_doc json u_doc)) query));
     RemoveDocResponse(true, "Success!")
   ) with
-    | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
+    | _ -> RemoveDocResponse (false, "Invalid update document provided")
+    | _ -> RemoveDocResponse(false, "Something went wrong with updating documents")
 
 (**
  * Given a doc representing criteria to query on, removes all appropriate docs in the environment.
