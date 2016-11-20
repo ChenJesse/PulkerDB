@@ -5,6 +5,7 @@ type response = | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
   | CreateDocResponse of bool * string
   | RemoveDocResponse of bool * string
+  | ReplaceDocResponse of bool * string
   | DropDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
@@ -41,11 +42,11 @@ val create_col : string -> string -> response
 val remove_doc : string -> string -> doc -> response
 
 (**
- * Given a string representing name of db and col, creates updates the documents within the col
- * based on the query criteria in the doc.
+ * Given a string representing name of db and col, creates removes the documents within the col
+ * based on the query criteria in the doc, and then inserts the updated_doc.
  * On failure, return false. On success, return true.
  *)
-val update_col : string -> string -> doc -> response
+val replace_col : string -> string -> doc -> doc -> response
 
 (**
  * Given a string representing name of db, drops a db in the environment.

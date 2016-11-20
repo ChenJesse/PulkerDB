@@ -23,6 +23,7 @@ type response = CreateDBResponse of bool * string
   | CreateColResponse of bool * string
   | CreateDocResponse of bool * string
   | RemoveDocResponse of bool * string
+  | ReplaceDocResponse of bool * string
   | DropDBResponse of bool * string
   | DropColResponse of bool * string
   | QueryResponse of bool * string
@@ -31,6 +32,7 @@ type response = CreateDBResponse of bool * string
 exception DropException
 exception LocateDBException
 exception LocateColException
+exception InvalidUpdateDocException
 
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
@@ -39,10 +41,30 @@ type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
 
 let environment : catalog = ref []
 
+let add_db_env db = environment := db::(!environment)
+
+(**
+ * Given a string representing name of db, creates a db in the environment.
+ * On failure, return false. On success, return true.
+ *)
+let create_db db =
+  match (List.exists (fun x -> (fst !x) = db) !environment) with
+    | true -> CreateDBResponse(false, "Database with same name already exists")
+    | false -> try (
+        add_db_env (ref (db, []));
+        CreateDBResponse(true, "Success!")
+      ) with
+      | _ -> CreateDBResponse(false, "Problem with storing database")
+
 let get_db_ref db =
   try (
     try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with
-      | _ -> read_db db; (List.filter (fun x -> (fst !x) = db) !environment |> List.hd)
+      | _ -> 
+        let empty_db = ref (db, []) in 
+        read_db db empty_db;
+        match (!empty_db |> snd |> List.length) <> 0 with 
+          | true -> add_db_env empty_db; empty_db
+          | false -> failwith "Not found in disk"
   ) with | _ -> raise LocateDBException
 
 let get_col_ref (col:string) (db:db) =
@@ -62,20 +84,6 @@ let create_doc db col doc =
   | LocateDBException -> CreateDocResponse(false, (db ^ " was not found."))
   | LocateColException -> CreateDocResponse(false, (col ^ " was not found."))
   | _ -> CreateDocResponse(false, "Something went wrong with storing the document.")
-
-
-(**
- * Given a string representing name of db, creates a db in the environment.
- * On failure, return false. On success, return true.
- *)
-let create_db db =
-  match (List.exists (fun x -> (fst !x) = db) !environment) with
-    | true -> CreateDBResponse(false, "Database with same name already exists")
-    | false -> try (
-        environment := (ref (db, []))::(!environment);
-        CreateDBResponse(true, "Success!")
-      ) with
-      | _ -> CreateDBResponse(false, "Problem with storing database")
 
 (**
  * Given a string representing name of col, creates a col in the environment.
@@ -227,19 +235,6 @@ let drop_col db col =
     | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
 
 (**
- * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
- * On failure, return false. On success, return true.
- *)
-let update_col db col query_doc =
-  try (
-    let col_ref = db |> get_db_ref |> get_col_ref col in
-    let col = !col_ref in
-    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
-    RemoveDocResponse(true, "Success!")
-  ) with
-    | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
-
-(**
  * Given a doc representing criteria to query on, removes all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
@@ -251,6 +246,20 @@ let remove_doc db col query_doc =
     RemoveDocResponse(true, "Success!")
   ) with
     | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
+
+(**
+ * Given a doc representing criteria to query on, removes all appropriate docs, and then inserts the given doc.
+ * On failure, return false. On success, return true.
+ *)
+let replace_col db col query_doc update_doc =
+  try (
+    let col_ref = db |> get_db_ref |> get_col_ref col in
+    let _ = remove_doc db col query_doc in 
+    let col = !col_ref in
+    col_ref := (fst col, update_doc::(snd col));
+    ReplaceDocResponse(true, "Success!")
+  ) with
+    | _ -> ReplaceDocResponse(false, "Something went wrong with replacing documents")
 
 (**
  * Given a string representing a query JSON, looks for matching docs in the environment.

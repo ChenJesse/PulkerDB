@@ -23,7 +23,8 @@ let help_msg = "
 | db.COLLECTION_NAME.drop()                                   |
 | db.COLLECTION_NAME.insert(document)                         |
 | db.COLLECTION_NAME.find()                                   |
-| db.COLLECTION_NAME.update(SELECTION_CRITERIA, UPDATED_DATA) |
+| db.COLLECTION_NAME.show()                                   |
+| db.COLLECTION_NAME.replace(SELECTION_CRITERIA|UPDATED_DATA) |
 | db.COLLECTION_NAME.remove(DELLETION_CRITERIA)               |
 --------------------------------------------------------------- \n"            
 
@@ -42,6 +43,9 @@ let rec loop input =
       else print_error msg
     | RemoveDocResponse (x, msg) ->
       if x then print_output "Successfully removed document!"
+      else print_error msg
+    | ReplaceDocResponse (x, msg) ->
+      if x then print_output "Successfully replaced document!"
       else print_error msg
     | DropDBResponse (x, msg) ->
       if x then print_output "Successfully dropped database!"

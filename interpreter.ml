@@ -18,7 +18,7 @@ exception ImproperNameError
  * given a valid string of a JSON, will output
  * corresponding doc with the appropriate structure
  *)
-let parse_json json_string = from_string json_string
+let parse_json json_string = try (from_string json_string) with | _ -> raise ParseError
 
 (**
  * Trims white space, convert to lowercase
@@ -68,7 +68,7 @@ let tuplize_input input =
     match i with 
       | "" -> ( match acc with 
         | Pair(_, _) | Triple(_, _, _) | Quad(_, _, _, _) -> acc
-        | _ -> failwith "Not proper tuple")
+        | _ -> raise ParseError)
       | _ -> 
         let (add, remainder) = 
           if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
@@ -84,6 +84,11 @@ let tuplize_input input =
           | Quad (_, _, _, _) -> failwith "Too many elements"
   in 
   helper Nil input
+
+(**
+ * Will split two parameters into a tuple
+ *)
+let tuplize_parameters input = (prefix '|' input, suffix '|' input)
 
 (**
  * Parses the input from the REPL, and calls the appropriate function
@@ -105,12 +110,15 @@ let parse input =
         | Quad (a, b, c, d) -> (match c with 
           | "drop" -> if d = "" then drop_col a b else raise ParseError
           | "insert" -> parse_json d |> create_doc a b
-          | "find" -> if d = "" then parse_json d |> query_col a b else raise ParseError
-          | "update" -> failwith "Unimplemented" (* TODO: Not sure how to handle multiple parameters *)
+          | "find" ->  parse_json d |> query_col a b 
           | "remove" -> parse_json d |> remove_doc a b
+          | "replace" -> 
+            let pair = tuplize_parameters d in 
+            replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
           | _ -> raise ParseError
         ) 
         | _ -> failwith "Improper tuple"
   ) with 
     | ParseError -> ParseErrorResponse(false, "Invalid command")
     | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name")
+    | _ -> ParseErrorResponse(false, "Something weird happened")
