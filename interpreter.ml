@@ -116,6 +116,9 @@ let parse input =
         | "replace" -> 
           let pair = tuplize_parameters d in 
           replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
+        | "update" -> 
+          let pair = tuplize_parameters d in 
+          update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
         | _ -> raise ParseError
       ) 
     | _ -> failwith "Improper tuple"

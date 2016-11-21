@@ -12,6 +12,7 @@ type response =
   | QueryResponse of bool * string
   | ParseErrorResponse of bool * string
   | ShowColResponse of bool * string
+  | UpdateColResponse of bool * string
 
 val environment : catalog
 
@@ -49,6 +50,13 @@ val remove_doc : string -> string -> doc -> response
  * On failure, return false. On success, return true.
  *)
 val replace_col : string -> string -> doc -> doc -> response
+
+(**
+ * Given a string representing name of db and col, creates updates the documents within the col
+ * based on the query criteria in the doc.
+ * On failure, return false. On success, return true.
+ *)
+val update_col : string -> string -> doc -> doc -> response
 
 (**
  * Given a string representing name of db, drops a db in the environment.
