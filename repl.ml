@@ -25,6 +25,7 @@ let help_msg = "
 | db.COLLECTION_NAME.find()                                   |
 | db.COLLECTION_NAME.show()                                   |
 | db.COLLECTION_NAME.replace(SELECTION_CRITERIA|UPDATED_DATA) |
+| db.COLLECTION_NAME.update(SELECTION_CRITERIA|UPDATED_DATA)  |
 | db.COLLECTION_NAME.remove(DELLETION_CRITERIA)               |
 --------------------------------------------------------------- \n"            
 
@@ -60,6 +61,9 @@ let rec loop input =
     | ShowColResponse (x, output) -> 
       if x then print_output output
     else print_error "Col does not exist."
+    | UpdateColResponse (x, msg) ->
+      if x then print_output "Successfully updated collection!"
+      else print_error msg
     | ParseErrorResponse(x, output) -> 
       print_error ("Parsing failed. " ^ output)
   );
