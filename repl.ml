@@ -18,7 +18,7 @@ let help_msg = "
                       DATABASE COMMANDS
 ---------------------------------------------------------------
 | use DATABASE_NAME                                           |
-| db.dropDatabase()                                           |  
+| db.dropDatabase()                                           |
 | db.createCollection(name)                                   |
 | db.COLLECTION_NAME.drop()                                   |
 | db.COLLECTION_NAME.insert(document)                         |
@@ -27,12 +27,14 @@ let help_msg = "
 | db.COLLECTION_NAME.replace(SELECTION_CRITERIA|UPDATED_DATA) |
 | db.COLLECTION_NAME.update(SELECTION_CRITERIA|UPDATED_DATA)  |
 | db.COLLECTION_NAME.remove(DELLETION_CRITERIA)               |
---------------------------------------------------------------- \n"            
+--------------------------------------------------------------- \n"
 
 let rec loop input =
-  (if input = "-exit" then exit(0)
+  (if input = "-exit" then
+    let () = Persist.write_env Db.environment in
+    exit(0)
   else if input = "-help" then ANSITerminal.(print_string [green] help_msg)
-  else 
+  else
     match parse input with
     | CreateDBResponse (x, msg) ->
       if x then print_output "Successfully created database!"
@@ -58,13 +60,13 @@ let rec loop input =
     | QueryResponse (x, output) ->
       if x then print_output output
       else print_error "Query failed."
-    | ShowColResponse (x, output) -> 
+    | ShowColResponse (x, output) ->
       if x then print_output output
     else print_error "Col does not exist."
     | UpdateColResponse (x, msg) ->
       if x then print_output "Successfully updated collection!"
       else print_error msg
-    | ParseErrorResponse(x, output) -> 
+    | ParseErrorResponse(x, output) ->
       print_error ("Parsing failed. " ^ output)
   );
   print_arrow ();
