@@ -12,7 +12,7 @@ type doc = Yojson.Basic.json
 
 type col = (string * doc list) ref
 
-type db = (string * col list) ref
+type db = (string * col list * bool) ref
 
 type catalog = (db list) ref
 
@@ -48,4 +48,4 @@ val read_collection: string -> string -> col -> unit
  * Given a db name, reads the db from disc and saves the db
  * to the ref
  *)
-val read_db: string -> db -> unit
+val read_db: db -> unit

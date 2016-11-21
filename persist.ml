@@ -12,7 +12,7 @@ type doc = Yojson.Basic.json
 
 type col = (string * doc list) ref
 
-type db = (string * col list) ref
+type db = (string * col list * bool) ref
 
 type catalog = (db list) ref
 
@@ -30,7 +30,7 @@ let write_collection db_name col_name doc_list =
   Yojson.Basic.to_file filepath docs_json
 
 let write_db db_ref =
-  let (db_name, col_refs) = !db_ref in
+  let (db_name, col_refs, dirty) = !db_ref in
   Unix.mkdir db_name 0o777;
   let rec helper col_list = match col_list with
     | [] -> ()
@@ -40,10 +40,13 @@ let write_db db_ref =
       helper t
   in helper col_refs
 
-let write_env env_ref =
+let write_env (env_ref : catalog) =
   let rec helper env = match env with
     | [] -> ()
-    | h::t -> write_db h; helper t
+    | db :: t ->
+      let (_, _, dirty) = !db in
+      if dirty then write_db db;
+      helper t
   in helper !env_ref
 
 let get_docs json = match json with
@@ -72,7 +75,8 @@ let read_collection db_name col_name col_ref =
     |> Yojson.Basic.Util.member "entries"  |> get_docs in
   col_ref := ( (fst !col_ref), doc_list)
 
-let read_db db_name db_ref =
+let read_db db_ref =
+  let (db_name, col_list, dirty) = !db_ref in
   try
     let dir = Unix.opendir db_name in
     let rec helper dir_handle =
@@ -81,7 +85,7 @@ let read_db db_name db_ref =
         if txt file then (
           let new_col = ref (file, []) in
           read_collection db_name file new_col;
-          db_ref := (fst !db_ref, new_col::(snd !db_ref));
+          db_ref := (db_name, new_col::col_list, dirty);
           helper dir
         )
         else
