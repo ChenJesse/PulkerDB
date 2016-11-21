@@ -19,7 +19,7 @@ type db = (string * col list) ref
 
 type catalog = (db list) ref
 
-type response = 
+type response =
   | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
   | CreateDocResponse of bool * string
@@ -49,13 +49,12 @@ let add_db_env db = environment := db::(!environment)
 let get_db_ref db =
   try (
     try (List.filter (fun x -> (fst !x) = db) !environment |> List.hd) with
-      | _ -> 
-        let empty_db = ref (db, []) in 
+      | _ ->
+        let empty_db = ref (db, []) in
         read_db db empty_db;
-        match (!empty_db |> snd |> List.length) <> 0 with 
-          | true -> add_db_env empty_db; empty_db
-          | false -> failwith "Not found in disk"
-  ) with | _ -> raise LocateDBException
+        empty_db
+  ) with
+    | _ -> raise LocateDBException
 
 let get_col_ref (col:string) (db:db) =
   try (!db |> snd |> List.filter (fun x -> (fst !x) = col) |> List.hd) with
@@ -115,7 +114,7 @@ let comparator_json doc = match doc with
 | _ -> false
 
 (**
- * Given a doc (json), extracts the value into OCaml primitive 
+ * Given a doc (json), extracts the value into OCaml primitive
  *)
 let rec get_converter (doc1 : doc) (doc2 : doc) = match doc1, doc2 with
 | (`Bool _, `Bool _) -> ToBool(Util.to_bool)
@@ -179,8 +178,8 @@ let check_doc doc query_doc =
     | None -> (match (nested_json (snd h)) with
       | true -> (* We have a doc as the value, need to recurse *)
         (* Represents the nested doc in the query_doc *)
-        let nested = match (snd h) with 
-          | `Assoc lst -> lst 
+        let nested = match (snd h) with
+          | `Assoc lst -> lst
           | _ -> failwith "Can't be here" in
         (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
         if (comparator_json (snd h)) then helper doc nested (fst h) true
@@ -207,7 +206,7 @@ let check_doc doc query_doc =
   | _ -> failwith "Invalid query JSON"
 
 (**
- * Given a string representing a query JSON, looks for matching docs in 
+ * Given a string representing a query JSON, looks for matching docs in
  * the environment.
  * On failure, return false. On success, return true.
  *)
@@ -230,7 +229,7 @@ let show_col db col =
     let contents = `List(snd col) |> pretty_to_string in
     ShowColResponse(true, contents)
   ) with
-  | _ -> 
+  | _ ->
     ShowColResponse(false, "Something went wrong with dropping a collection")
 
 (* -------------------------------REMOVING/UPDATING-------------------------------- *)
@@ -271,27 +270,27 @@ let drop_col db col =
   | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
 
 (**
- * Given a doc representing criteria to query on, removes all 
- * appropriate docs in the environment. On failure, return false. 
+ * Given a doc representing criteria to query on, removes all
+ * appropriate docs in the environment. On failure, return false.
  * On success, return true.
  *)
 let remove_doc db col query_doc =
   try (
     let col_ref = db |> get_db_ref |> get_col_ref col in
     let col = !col_ref in
-    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); 
+    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col));
     RemoveDocResponse(true, "Success!")
   ) with
   | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
 
 (**
- * Given a doc representing criteria to query on, removes all appropriate docs, 
+ * Given a doc representing criteria to query on, removes all appropriate docs,
  * and then inserts the given doc. On failure, return false. On success, return true.
  *)
 let replace_col db col query_doc update_doc =
   try (
     let col_ref = db |> get_db_ref |> get_col_ref col in
-    let _ = remove_doc db col query_doc in 
+    let _ = remove_doc db col query_doc in
     let col = !col_ref in
     col_ref := (fst col, update_doc::(snd col));
     ReplaceDocResponse(true, "Success!")

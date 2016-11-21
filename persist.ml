@@ -16,6 +16,8 @@ type db = (string * col list) ref
 
 type catalog = (db list) ref
 
+exception NotInDisc
+
 let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
   match doc_list with
     | [] -> `List(acc)
@@ -64,17 +66,6 @@ let txt filename =
   else
     Str.string_match (Str.regexp "\\.txt$") filename (len-4)
 
-(* let read_collection db_name db_ref col_name =
-  match create_col db_name col_name with
-    | CreateColResponse(true, _) ->
-      let path = db_name ^ "/" ^ col_name in
-      let doc_list = path |> Yojson.Basic.from_file
-        |> Yojson.Basic.Util.member "entries"  |> get_docs in
-      let old_col = (get_col_ref col_name db_ref) in
-      old_col := ( (fst !old_col), doc_list)
-    | CreateColResponse(false, x) -> failwith x
-    | _ -> failwith "unexpected response" *)
-
 let read_collection db_name col_name col_ref =
   let path = db_name ^ "/" ^ col_name in
   let doc_list = path |> Yojson.Basic.from_file
@@ -82,17 +73,21 @@ let read_collection db_name col_name col_ref =
   col_ref := ( (fst !col_ref), doc_list)
 
 let read_db db_name db_ref =
-  let dir = Unix.opendir db_name in
-  let rec helper dir_handle =
-    try
-      let file = Unix.readdir dir_handle in
-      if txt file then (
-        let new_col = ref (file, []) in 
-        read_collection db_name file new_col;
-        helper dir
-      )
-      else
-        helper dir
-    with
-      | End_of_file -> ()
-  in helper dir
+  try
+    let dir = Unix.opendir db_name in
+    let rec helper dir_handle =
+      try
+        let file = Unix.readdir dir_handle in
+        if txt file then (
+          let new_col = ref (file, []) in
+          read_collection db_name file new_col;
+          db_ref := (fst !db_ref, new_col::(snd !db_ref));
+          helper dir
+        )
+        else
+          helper dir
+      with
+        | End_of_file -> ()
+    in helper dir
+  with
+    | Unix.Unix_error _ -> raise NotInDisc

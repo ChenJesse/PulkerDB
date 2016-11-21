@@ -69,16 +69,18 @@ let db_tests = [
   "test17" >:: (fun _ -> assert_equal false
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}") (parse_json "{b: {c: {\"$ltt\": 6}, d: {\"$gt\": \"a\"}}}")));
 ]
-(* 
-let test_doc = `Assoc([("key", `String("value"))])
+
+let empty_db : Persist.db = ref ("target", [])
+
+let test_doc = `Assoc( [("key", `String("value"))] )
 let test_col = ref ("test_col", test_doc::[])
 let test_db = ref ("test_db", test_col::[])
 let test_env = ref (test_db::[])
 
-let test_db2 : Db.db = ref ("test_db2", [])
+let test_db2 : Persist.db = ref ("test_db2", [])
 let test_env2 = ref (test_db2::[])
 
-let test_col3 : Db.col = ref ("test_col3", [])
+let test_col3 : Persist.col = ref ("test_col3", [])
 let test_db3 = ref ("test_db3", test_col3::[])
 let test_env3 = ref (test_db3::[])
 
@@ -86,44 +88,38 @@ let persist_tests = [
   "writes env to disc and reads from it" >:: (fun _ ->
     Persist.write_env test_env;
     assert (Sys.is_directory "test_db");
-    Persist.read_db "test_db";
-    let env = !Db.environment in
-    assert (env <> []);
-    let db = !(List.hd env) in
-    assert (fst db = "test_db");
-    let col = !( (snd db) |> List.hd ) in
+    Persist.read_db "test_db" empty_db;
+    assert (fst !empty_db = "target");
+    assert (snd !empty_db <> []);
+    let col = !( (snd !empty_db) |> List.hd ) in
     assert (fst col = "test_col.txt");
     assert (snd col = [`Assoc([("key", `String("value"))])]);
     Sys.remove "test_db/test_col.txt";
-    Unix.rmdir "test_db"
+    Unix.rmdir "test_db";
+    empty_db := "target", ([] : Persist.col list)
   );
   "empty db" >:: (fun _ ->
     Persist.write_env (test_env2);
     assert (Sys.is_directory "test_db2");
-    Persist.read_db "test_db2";
-    let env = !Db.environment in
-    assert (env <> []);
-    let db = !(List.hd env) in
-    assert (fst db = "test_db2");
-    assert (snd db = []);
-    Unix.rmdir "test_db2"
+    Persist.read_db "test_db2" empty_db;
+    assert (fst !empty_db = "test_db2");
+    assert (snd !empty_db = []);
+    Unix.rmdir "test_db2";
+    empty_db := "target", ([] : Persist.col list)
   );
   "empty col" >:: (fun _ ->
     Persist.write_env (test_env3);
     assert (Sys.is_directory "test_db3");
-    Persist.read_db "test_db3";
-    let env = !Db.environment in
-    assert (env <> []);
-    let db = !(List.hd env) in
-    assert (fst db = "test_db3");
-    let col = ! ( (snd db) |> List.hd ) in
+    Persist.read_db "test_db3" empty_db;
+    assert (fst !empty_db = "test_db3");
+    assert (snd !empty_db <> []);
+    let col = ! ( (snd !empty_db) |> List.hd ) in
     assert (fst col = "test_col3.txt");
     assert (snd col = []);
     Sys.remove "test_db3/test_col3.txt";
     Unix.rmdir "test_db3"
   )
 ]
- *)
 
 let suite =
   "PulkerDB Test Suite"

@@ -5,6 +5,6 @@
 #load "persist.cmo";;
 #load "db.cmo";;
 #load "interpreter.cmo";;
-#use "interpreter.ml";;
+#use "persist.ml"
 #use "db.ml";;
 #use "repl.ml";;
