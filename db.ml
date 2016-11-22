@@ -254,11 +254,13 @@ let drop_db db =
     let db_exists = List.exists (fun d -> db_name !d = db) env in
     if db_exists then (
       environment := List.filter (fun d -> db_name !d <> db) env;
+      remove_db db;
       DropDBResponse(true, "Success!")
     ) else (
       raise DropException
     )
   ) with
+  | NotInDisc -> DropDBResponse(true, "Success!")
   | DropException -> DropDBResponse(false, (db ^ " does not exist."))
   | _ -> DropDBResponse(false, "Something went wrong with dropping a db")
 

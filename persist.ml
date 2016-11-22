@@ -46,6 +46,14 @@ let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
     | [] -> `List(acc)
     | h::t -> list_to_doc t (h::acc)
 
+let remove_db db_name =
+  try (
+    let rm filename = Unix.unlink (db_name ^ "/" ^ filename) in
+    traverse_dir rm db_name);
+    Unix.rmdir db_name
+  with
+  | _ -> raise NotInDisc
+
 let write_collection db_name col_name doc_list =
   let docs = list_to_doc doc_list [] in
   let docs_json = `Assoc([("entries", docs)]) in
@@ -69,13 +77,12 @@ let write_env (env_ref : catalog) =
     | db :: t ->
       let (db_name, _, dirty) = !db in (
       try (
-        let rm filename = Unix.unlink (db_name ^ "/" ^ filename) in
         if dirty then (
-          traverse_dir (rm) db_name;
+          remove_db db_name;
           Unix.rmdir db_name;
           write_db db))
       with
-        | Unix.Unix_error(Unix.ENOENT, "opendir", db_name) -> write_db db
+        | NotInDisc -> write_db db
       );
       helper t
   in helper !env_ref
@@ -105,7 +112,6 @@ let read_db db_ref =
       let new_col = ref (strip file, []) in
       read_collection db_name file new_col;
       db_ref := (db_name, new_col::col_list, dirty)
-
     in
     traverse_dir col_from_disc db_name
   with

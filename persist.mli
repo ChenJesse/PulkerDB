@@ -18,6 +18,8 @@ type catalog = (db list) ref
 
 exception NotInDisc
 
+val remove_db: string -> unit
+
 (*
  * Writes a collection to a json file.
  * Every document in the collection will be a separate entry in the "documents"
