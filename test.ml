@@ -74,7 +74,6 @@ let empty_db : Persist.db = ref ("test_db", [], false)
 let empty_db2 : Persist.db = ref ("test_db2", [], false)
 let empty_db3 : Persist.db = ref ("test_db3", [], false)
 
-
 let test_doc = `Assoc( [("key", `String("value"))] )
 let test_col = ref ("test_col", test_doc::[])
 let test_db = ref ("test_db", test_col::[], true)
@@ -100,9 +99,9 @@ let persist_tests = [
     assert (db_cols !empty_db <> []);
     assert (db_dirty !empty_db = false);
     let col = !( (db_cols !empty_db) |> List.hd ) in
-    assert (fst col = "test_col.txt");
+    assert (fst col = "test_col");
     assert (snd col = [`Assoc([("key", `String("value"))])]);
-    Sys.remove "test_db/test_col.txt";
+    Sys.remove "test_db/test_col3110";
     Unix.rmdir "test_db";
     empty_db := "target", ([] : Persist.col list), false
   );
@@ -124,9 +123,9 @@ let persist_tests = [
     assert (db_cols !empty_db3 <> []);
     assert (db_dirty !empty_db3 = false);
     let col = ! ( (db_cols !empty_db3) |> List.hd ) in
-    assert (fst col = "test_col3.txt");
+    assert (fst col = "test_col3");
     assert (snd col = []);
-    Sys.remove "test_db3/test_col3.txt";
+    Sys.remove "test_db3/test_col33110";
     Unix.rmdir "test_db3"
   )
 ]

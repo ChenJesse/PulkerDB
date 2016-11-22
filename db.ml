@@ -72,9 +72,14 @@ let create_db db =
   match (List.exists (fun x -> (db_name !x) = db) !environment) with
     | true -> CreateDBResponse(false, "Database with same name already exists")
     | false -> try (
-        add_db_env (ref (db, [], true));
+        let empty_db = ref (db, [], false) in
+        read_db empty_db;
+        add_db_env empty_db;
         CreateDBResponse(true, "Success!")
       ) with
+      | NotInDisc ->
+        add_db_env (ref (db, [], true));
+        CreateDBResponse(true, "Success!")
       | _ -> CreateDBResponse(false, "Problem with storing database")
 
 (**
@@ -300,37 +305,37 @@ let remove_and_get_doc db col query_doc =
   try (
     let col_ref = db |> get_db_ref |> get_col_ref col in
     let col = !col_ref in
-    let query = List.filter (fun d -> check_doc d query_doc) (snd col) in 
+    let query = List.filter (fun d -> check_doc d query_doc) (snd col) in
     col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
     query
   ) with
   | _ -> []
 
 (**
- * Responsible for updating a document, given an update document 
+ * Responsible for updating a document, given an update document
  *)
-let rec modify_doc doc update_doc = 
-  let helper doc u_doc = 
-    let (u_key, u_value) = match u_doc with 
-      | `Assoc lst -> List.hd lst 
+let rec modify_doc doc update_doc =
+  let helper doc u_doc =
+    let (u_key, u_value) = match u_doc with
+      | `Assoc lst -> List.hd lst
       | _ -> raise InvalidUpdateDocException
-    in 
-    let lst = match doc with 
-      | `Assoc lst -> lst 
+    in
+    let lst = match doc with
+      | `Assoc lst -> lst
       | _ -> failwith "Should not be here"
-    in 
+    in
     (* Constructing the updated doc *)
     `Assoc (
-      List.map (fun pair -> match (fst pair) = u_key with 
+      List.map (fun pair -> match (fst pair) = u_key with
         | true -> (
-              match snd pair with 
-              | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value) 
+              match snd pair with
+              | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value)
               | _ -> (fst pair, u_value)
-            ) 
+            )
         | false -> pair) lst
     )
-  in 
-  match update_doc with 
+  in
+  match update_doc with
   | `Assoc _ -> helper doc update_doc (* Should only have one assoc pair *)
   | _ -> raise InvalidUpdateDocException
 
@@ -357,10 +362,10 @@ let replace_col db col query_doc update_doc =
 let update_col db col query_doc update_doc =
   try (
     let col_ref = db |> get_db_ref |> get_col_ref col in
-    let u_doc = match Util.member "$set" update_doc with 
-      | `Assoc json -> `Assoc json 
-      | _ -> raise InvalidUpdateDocException in 
-    let query = remove_and_get_doc db col query_doc in 
+    let u_doc = match Util.member "$set" update_doc with
+      | `Assoc json -> `Assoc json
+      | _ -> raise InvalidUpdateDocException in
+    let query = remove_and_get_doc db col query_doc in
     let col = !col_ref in
     col_ref := (fst col, (snd col)@(List.map (fun json -> (modify_doc json u_doc)) query));
     UpdateColResponse(true, "Success!")

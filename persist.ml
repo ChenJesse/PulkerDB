@@ -18,6 +18,29 @@ type catalog = (db list) ref
 
 exception NotInDisc
 
+(* [col filename] Given a filename, returns true if filename is a
+ * collection ie ends with 3110
+ * requires:
+ *   - [filename] is a string
+ *)
+let col filename =
+  let len = String.length filename in
+  if len < 4 then
+    false
+  else
+    Str.string_match (Str.regexp "3110$") filename (len-4)
+
+let traverse_dir fx dirname =
+  let rec helper dir_handle =
+    try
+      let file = Unix.readdir dir_handle in
+      if col file then fx file;
+      helper dir_handle
+    with
+      | End_of_file -> ()
+  in
+  helper (Unix.opendir dirname)
+
 let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
   match doc_list with
     | [] -> `List(acc)
@@ -26,7 +49,7 @@ let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
 let write_collection db_name col_name doc_list =
   let docs = list_to_doc doc_list [] in
   let docs_json = `Assoc([("entries", docs)]) in
-  let filepath = db_name ^ "/" ^ col_name ^ ".txt" in
+  let filepath = db_name ^ "/" ^ col_name ^ "3110" in
   Yojson.Basic.to_file filepath docs_json
 
 let write_db db_ref =
@@ -44,8 +67,16 @@ let write_env (env_ref : catalog) =
   let rec helper env = match env with
     | [] -> ()
     | db :: t ->
-      let (_, _, dirty) = !db in
-      if dirty then write_db db;
+      let (db_name, _, dirty) = !db in (
+      try (
+        let rm filename = Unix.unlink (db_name ^ "/" ^ filename) in
+        if dirty then (
+          traverse_dir (rm) db_name;
+          Unix.rmdir db_name;
+          write_db db))
+      with
+        | Unix.Unix_error(Unix.ENOENT, "opendir", db_name) -> write_db db
+      );
       helper t
   in helper !env_ref
 
@@ -57,17 +88,9 @@ let get_docs json = match json with
     in helper x []
   | _ -> failwith "expected a json of `List"
 
-(* [txt filename] Given a filename, returns true if filename has a
- * .txt extension.
- * requires:
- *   - [filename] is a string
- *)
-let txt filename =
+let strip filename =
   let len = String.length filename in
-  if len < 4 then
-    false
-  else
-    Str.string_match (Str.regexp "\\.txt$") filename (len-4)
+  String.sub filename 0 (len-4)
 
 let read_collection db_name col_name col_ref =
   let path = db_name ^ "/" ^ col_name in
@@ -78,20 +101,12 @@ let read_collection db_name col_name col_ref =
 let read_db db_ref =
   let (db_name, col_list, dirty) = !db_ref in
   try
-    let dir = Unix.opendir db_name in
-    let rec helper dir_handle =
-      try
-        let file = Unix.readdir dir_handle in
-        if txt file then (
-          let new_col = ref (file, []) in
-          read_collection db_name file new_col;
-          db_ref := (db_name, new_col::col_list, dirty);
-          helper dir
-        )
-        else
-          helper dir
-      with
-        | End_of_file -> ()
-    in helper dir
+    let col_from_disc file =
+      let new_col = ref (strip file, []) in
+      read_collection db_name file new_col;
+      db_ref := (db_name, new_col::col_list, dirty)
+
+    in
+    traverse_dir col_from_disc db_name
   with
     | Unix.Unix_error _ -> raise NotInDisc
