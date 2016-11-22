@@ -101,7 +101,7 @@ let persist_tests = [
     let col = !( (db_cols !empty_db) |> List.hd ) in
     assert (fst col = "test_col");
     assert (snd col = [`Assoc([("key", `String("value"))])]);
-    Sys.remove "test_db/test_col3110";
+    Sys.remove "test_db/test_col.json";
     Unix.rmdir "test_db";
     empty_db := "target", ([] : Persist.col list), false
   );
@@ -125,7 +125,7 @@ let persist_tests = [
     let col = ! ( (db_cols !empty_db3) |> List.hd ) in
     assert (fst col = "test_col3");
     assert (snd col = []);
-    Sys.remove "test_db3/test_col33110";
+    Sys.remove "test_db3/test_col3.json";
     Unix.rmdir "test_db3"
   )
 ]

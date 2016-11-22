@@ -19,16 +19,16 @@ type catalog = (db list) ref
 exception NotInDisc
 
 (* [col filename] Given a filename, returns true if filename is a
- * collection ie ends with 3110
+ * collection ie ends with .json file extension
  * requires:
  *   - [filename] is a string
  *)
 let col filename =
   let len = String.length filename in
-  if len < 4 then
+  if len < 5 then
     false
   else
-    Str.string_match (Str.regexp "3110$") filename (len-4)
+    Str.string_match (Str.regexp ".json$") filename (len-5)
 
 let traverse_dir fx dirname =
   let rec helper dir_handle =
@@ -49,7 +49,7 @@ let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
 let write_collection db_name col_name doc_list =
   let docs = list_to_doc doc_list [] in
   let docs_json = `Assoc([("entries", docs)]) in
-  let filepath = db_name ^ "/" ^ col_name ^ "3110" in
+  let filepath = db_name ^ "/" ^ col_name ^ ".json" in
   Yojson.Basic.to_file filepath docs_json
 
 let write_db db_ref =
@@ -90,7 +90,7 @@ let get_docs json = match json with
 
 let strip filename =
   let len = String.length filename in
-  String.sub filename 0 (len-4)
+  String.sub filename 0 (len-5)
 
 let read_collection db_name col_name col_ref =
   let path = db_name ^ "/" ^ col_name in
