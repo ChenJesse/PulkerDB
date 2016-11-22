@@ -373,3 +373,5 @@ let update_col db col query_doc update_doc =
     UpdateColResponse(true, "Success!")
   ) with
     | _ -> UpdateColResponse(false, "Invalid update document provided")
+
+let clear_env () = environment := []

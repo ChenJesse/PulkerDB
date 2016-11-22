@@ -29,6 +29,10 @@ let interpreter_tests = [
     (tuplize_input "db.COLLECTION_NAME.find()"));
   "remove" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "remove", "{asdf}"))
     (tuplize_input "db.COLLECTION_NAME.remove({asdf})"));
+  "replace" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "replace", "{asdf}|{fdas}"))
+    (tuplize_input "db.COLLECTION_NAME.replace({asdf}|{fdas})"));
+  "update" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "update", "{asdf}|{fdas}"))
+    (tuplize_input "db.COLLECTION_NAME.update({asdf}|{fdas})"));
 ]
 
 let db_tests = [
@@ -130,8 +134,55 @@ let persist_tests = [
   )
 ]
 
+let end_to_end_tests = [
+  "test1" >:: (fun _ -> assert_equal (CreateDBResponse(true, "Success!"))
+    (clear_env(); parse "use test"));
+  "test2" >:: (fun _ -> assert_equal (CreateDBResponse(false, "Database with same name already exists"))
+    (clear_env (); parse "use test"; parse "use test"));
+  "test3" >:: (fun _ -> assert_equal (CreateColResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"));
+  "test4" >:: (fun _ -> assert_equal (CreateColResponse(false, "c already exists."))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.createCollection(c)"));
+  "test5" >:: (fun _ -> assert_equal (DropDBResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.dropDatabase()"));
+  "test6" >:: (fun _ -> assert_equal (CreateDBResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.dropDatabase()"; parse "use test"));
+  "test7" >:: (fun _ -> assert_equal (DropColResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.drop()"));
+  "test8" >:: (fun _ -> assert_equal (CreateColResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.drop()"; parse "test.createCollection(c)"));
+  "test9" >:: (fun _ -> assert_equal (CreateDocResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.insert({a: 1, b: 2})"));
+  "test10" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.insert({a: 1, b: 2})"; parse "test.c.show()"));
+  "test11" >:: (fun _ -> assert_equal (CreateDocResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; 
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})"));
+  "test12" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 5, \"b\": 6 }, { \"a\": 1, \"b\": 2 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; 
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})"; parse "test.c.show()"));
+  "test13" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; 
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})"; 
+      parse "test.c.find({b: 2})"));
+  "test14" >:: (fun _ -> assert_equal (UpdateColResponse(true, "Success!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; 
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})"; 
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {\"$set\": {b: 6}})"));
+  "test15" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; 
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})"; 
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {\"$set\": {b: 2}})"; 
+      parse "test.c.show()"));
+  "test16" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; 
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})"; 
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; 
+      parse "test.c.find({b: 2})"));
+]
+
 let suite =
   "PulkerDB Test Suite"
-  >::: interpreter_tests@db_tests@persist_tests
+  >::: interpreter_tests@db_tests@persist_tests@end_to_end_tests
 
 let _ = run_test_tt_main suite

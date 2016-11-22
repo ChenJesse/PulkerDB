@@ -83,3 +83,8 @@ val show_col: string -> string -> response
 val query_col : string -> string -> doc -> response
 
 val check_doc : doc -> doc -> bool
+
+(**
+ * Test only method to reset the entire environment
+ *)
+val clear_env : unit -> unit
