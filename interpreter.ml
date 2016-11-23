@@ -100,8 +100,10 @@ let parse input =
     | true -> handle_use_db i
     | false -> 
       if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
+      else if input = "show" then show_catalog ()
       else match (tuplize_input i) with 
       | Triple (a, b, c) -> ( match b with 
+        | "show" -> if c = "" then show_db a else raise ParseError
         | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
         | "createcollection" -> if (validate_name c) then create_col a c
                                 else raise ImproperNameError

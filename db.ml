@@ -24,6 +24,8 @@ type response =
   | ParseErrorResponse of bool * string
   | ShowColResponse of bool * string
   | UpdateColResponse of bool * string
+  | ShowDBResponse of bool * string
+  | ShowCatalogResponse of bool * string
 
 exception DropException
 exception LocateDBException
@@ -62,6 +64,15 @@ let get_col_ref (col:string) (db:db) =
 let set_dirty (db:db) =
   let (db_name, db_cols, _) = !db in
   db := (db_name, db_cols, true)
+
+let stringify_list lst = 
+  List.fold_left (fun acc ele -> acc ^ " [" ^ ele ^ "]") "" lst
+
+let trpl_fst t = match t with 
+  | (a, _, _) -> a
+
+let trpl_snd t = match t with 
+  | (_, b, _) -> b
 
 (* -------------------------------CREATION------------------------------- *)
 (**
@@ -241,6 +252,24 @@ let show_col db col =
   ) with
   | _ ->
     ShowColResponse(false, "Something went wrong with dropping a collection")
+
+let show_db db = 
+  try (
+    let db = !(db |> get_db_ref) in 
+    let contents = db |> trpl_snd |> List.map (fun c -> !c |> fst) |> stringify_list
+    in 
+    ShowDBResponse(true, contents)
+  ) with 
+  | _ -> 
+    ShowDBResponse(false, "Something went wrong with dropping a collection")
+
+let show_catalog () = 
+  try (
+    let contents = !environment |> List.map (fun db -> !db |> trpl_fst) |> stringify_list in 
+    ShowCatalogResponse(true, contents)
+  ) with 
+  | _ -> 
+    ShowCatalogResponse(false, "Something went wrong with dropping a collection")
 
 (* -------------------------------REMOVING--------------------------------- *)
 

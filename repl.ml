@@ -62,7 +62,13 @@ let rec loop input =
       else print_error "Query failed."
     | ShowColResponse (x, output) ->
       if x then print_output output
-    else print_error "Col does not exist."
+      else print_error "Col does not exist."
+    | ShowDBResponse (x, output) -> 
+      if x then print_output output
+      else print_error "DB does not exist."
+    | ShowCatalogResponse (x, output) -> 
+      if x then print_output output
+      else print_error "Something went wrong with the environment."
     | UpdateColResponse (x, msg) ->
       if x then print_output "Successfully updated collection!"
       else print_error msg
