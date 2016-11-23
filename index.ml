@@ -1,7 +1,7 @@
 (* Each subcategory of code lists which file will have to be changed/integrated into*)
 
 (*db.ml *)
-type dataEntry = (json * doc list)
+type dataEntry = (json * doc list) (*replace with a hashtable*)
 type indexFile = string * (dataEntry List)
 type indexList = indexFile list
 type response =
@@ -19,6 +19,7 @@ type response =
   | UpdateColResponse of bool * string
 
 let compareDocs = ();
+
 (* Need to redefine this to be with arrays instead.*)
 
 let loadFromIndex lowIndex HighIndex indexFile indexDesired=
@@ -29,9 +30,32 @@ match indexFile with
               docList:= (snd retTuple)::docList) done;
 
 (*Index creation (sans tree for now) *)
-let createIndex db_name col_name index_name =
+let createIndex db_name col_name index_name querydoc=
+try (let col = !(db |> get_db_ref |> get_col_ref col) in
+    let query_result = List.filter (fun d-> check_doc d query_doc) (snd col) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
+    let sorted_results = docSort querydoc query_result in (* Sort them all *)
+    let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
+    let ctr = ref(0) in
+    let len = List.length sorted_results in
+    while(ctr < len)
+    do (
+    let currentDoc = List.nth ctr sorted_results in
+    let t = Util.member index_name currentDoc in(*Load them all into the hashtable *)
+    Hashtbl.add table t currentDoc;
+    ctr:= !ctr+1;
+  ) done;
+    (index_name, table); (*The final index, table tuple*)
 
 
+
+let query_col db col query_doc =
+  try (
+    let col = !(db |> get_db_ref |> get_col_ref col) in
+    let query_result = List.filter (fun d -> check_doc d query_doc) (snd col) in
+    let query_string = `List(query_result) |> pretty_to_string in
+    QueryResponse(true, query_string)
+  ) with
+  | _ -> QueryResponse(false, "Query failed for some reason")
 (* For Interpreter.ml*)
 
   | Quad (a, b, c, d) -> (match c with
