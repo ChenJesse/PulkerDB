@@ -93,7 +93,7 @@ let strip filename =
   String.sub filename 0 (len-5)
 
 let read_collection db_name col_name =
-  let path = db_name ^ "/" ^ col_name in
+  let path = db_name ^ "/" ^ col_name ^ ".json" in
   let doc_list = path |> Yojson.Basic.from_file
     |> Yojson.Basic.Util.member "entries"  |> get_docs in
   doc_list
