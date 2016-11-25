@@ -10,11 +10,11 @@
  *)
 type doc = Yojson.Basic.json
 
-type col = (string * doc list) ref
+type col = doc list
 
-type db = (string * col list * bool) ref
+type db = (string, col) Hashtbl.t * bool
 
-type catalog = (db list) ref
+type catalog = (string, db) Hashtbl.t
 
 exception NotInDisc
 
@@ -60,32 +60,25 @@ let write_collection db_name col_name doc_list =
   let filepath = db_name ^ "/" ^ col_name ^ ".json" in
   Yojson.Basic.to_file filepath docs_json
 
-let write_db db_ref =
-  let (db_name, col_refs, dirty) = !db_ref in
+let write_db db_name db =
+  let (col_hashtbl, dirty) = db in
   Unix.mkdir db_name 0o777;
-  let rec helper col_list = match col_list with
-    | [] -> ()
-    | h::t ->
-      let (col_name, docs) = !h in
-      write_collection db_name col_name docs;
-      helper t
-  in helper col_refs
+  let helper col_name col =
+    write_collection db_name col_name col
+  in
+  Hashtbl.iter helper col_hashtbl
 
-let write_env (env_ref : catalog) =
-  let rec helper env = match env with
-    | [] -> ()
-    | db :: t ->
-      let (db_name, _, dirty) = !db in (
-      try (
-        if dirty then (
-          remove_db db_name;
-          Unix.rmdir db_name;
-          write_db db))
-      with
-        | NotInDisc -> write_db db
-      );
-      helper t
-  in helper !env_ref
+let write_env (env : catalog) =
+  let helper db_name db =
+    let (_, dirty) = db in
+    try (
+      if dirty then (
+        remove_db db_name;
+        Unix.rmdir db_name;
+        write_db db_name db))
+    with
+      | NotInDisc -> write_db db_name db
+  in Hashtbl.iter helper env
 
 let get_docs json = match json with
   | `List x ->
@@ -99,19 +92,19 @@ let strip filename =
   let len = String.length filename in
   String.sub filename 0 (len-5)
 
-let read_collection db_name col_name col_ref =
+let read_collection db_name col_name =
   let path = db_name ^ "/" ^ col_name in
   let doc_list = path |> Yojson.Basic.from_file
     |> Yojson.Basic.Util.member "entries"  |> get_docs in
-  col_ref := ( (fst !col_ref), doc_list)
+  doc_list
 
-let read_db db_ref =
-  let (db_name, col_list, dirty) = !db_ref in
+let read_db db_name db =
+  let (col_hashtbl, dirty) = db in
   try
     let col_from_disc file =
-      let new_col = ref (strip file, []) in
-      read_collection db_name file new_col;
-      db_ref := (db_name, new_col::col_list, dirty)
+      let col_name = strip file in
+      let new_col = read_collection db_name col_name in
+      Hashtbl.add col_hashtbl col_name new_col
     in
     traverse_dir col_from_disc db_name
   with

@@ -10,11 +10,11 @@
  *)
 type doc = Yojson.Basic.json
 
-type col = (string * doc list) ref
+type col = doc list
 
-type db = (string * col list * bool) ref
+type db = ((string, col) Hashtbl.t * bool)
 
-type catalog = (db list) ref
+type catalog = ((string, db) Hashtbl.t)
 
 exception NotInDisc
 
@@ -34,7 +34,7 @@ val write_collection: string -> string -> doc list -> unit
  * the collection will be created, holding all the documents in the collection,
  * in the directory.
  *)
-val write_db: db -> unit
+val write_db: string -> db -> unit
 
 (*
  * Writes a catalog of databases to the hard drive.
@@ -46,10 +46,10 @@ val write_env: catalog -> unit
  * Given a collection name col, a db name db, and a collection ref,
  * saves the collection from db.col in the ref
  *)
-val read_collection: string -> string -> col -> unit
+val read_collection: string -> string -> col
 
 (*
- * Given a db name, reads the db from disc and saves the db
+ * Given a db name and ref, reads the db from disc and saves the db
  * to the ref
  *)
-val read_db: db -> unit
+val read_db: string -> db -> unit

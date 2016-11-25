@@ -37,41 +37,40 @@ type converter = ToInt of (doc -> int) | ToString of (doc -> string)
 
 type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
 
-let environment : catalog = ref []
+let environment : catalog = Hashtbl.create 20
 
 (* ------------------------------HELPERS------------------------------ *)
-let add_db_env db = environment := db::(!environment)
+let add_db_env db_name db = Hashtbl.add environment db_name db
 
-let db_name (name, _, _) = name
-
-let db_cols (_, col_list, _) = col_list
-
-let get_db_ref db =
+let get_db db_name : db =
   try (
-    try (List.find (fun x -> (db_name !x) = db) !environment) with
+    try (Hashtbl.find environment db_name) with
       | _ ->
-        let (empty_db : db) = ref (db, [], false) in
-        read_db empty_db;
+        let (empty_db : db) = ((Hashtbl.create 100), false) in
+        read_db db_name empty_db;
         empty_db
   ) with
     | _ -> raise LocateDBException
 
-let get_col_ref (col:string) (db:db) =
-  try (!db |> db_cols |> List.find (fun x -> (fst !x) = col))
+let get_col (col:string) (db:db) : col =
+  try (
+    let cols = db |> fst in
+    Hashtbl.find cols col
+  )
   with
   | _ -> raise LocateColException
 
-let set_dirty (db:db) =
-  let (db_name, db_cols, _) = !db in
-  db := (db_name, db_cols, true)
+let set_dirty db_name =
+  let (db, _) = get_db db_name in
+  Hashtbl.replace environment db_name (db, true)
 
-let stringify_list lst = 
+let stringify_list lst =
   List.fold_left (fun acc ele -> acc ^ " [" ^ ele ^ "]") "" lst
 
-let trpl_fst t = match t with 
+let trpl_fst t = match t with
   | (a, _, _) -> a
 
-let trpl_snd t = match t with 
+let trpl_snd t = match t with
   | (_, b, _) -> b
 
 (* -------------------------------CREATION------------------------------- *)
@@ -79,17 +78,17 @@ let trpl_snd t = match t with
  * Given a string representing name of db, creates a db in the environment.
  * On failure, return false. On success, return true.
  *)
-let create_db db =
-  match (List.exists (fun x -> (db_name !x) = db) !environment) with
+let create_db db_name =
+  match (Hashtbl.mem environment db_name) with
     | true -> CreateDBResponse(false, "Database with same name already exists")
     | false -> try (
-        let empty_db = ref (db, [], false) in
-        read_db empty_db;
-        add_db_env empty_db;
+        let (empty_db:db) = (Hashtbl.create 100, false) in
+        read_db db_name empty_db;
+        add_db_env db_name empty_db;
         CreateDBResponse(true, "Success!")
       ) with
       | NotInDisc ->
-        add_db_env (ref (db, [], true));
+        add_db_env db_name (Hashtbl.create 100, false);
         CreateDBResponse(true, "Success!")
       | _ -> CreateDBResponse(false, "Problem with storing database")
 
@@ -97,28 +96,29 @@ let create_db db =
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.
  *)
-let create_doc db col doc =
+let create_doc db_name col_name doc =
   try (
-    let db_ref = db |> get_db_ref in
-    let col_ref = db_ref |> get_col_ref col in
-    col_ref := (fst !col_ref, doc::(snd !col_ref));
-    set_dirty (db_ref);
+    let db = get_db db_name in
+    let col = get_col col_name db in
+    let new_col = doc::col in
+    Hashtbl.replace (fst db) col_name new_col;
+    set_dirty (db_name);
     CreateDocResponse(true, "Success!")
   ) with
-  | LocateDBException -> CreateDocResponse(false, (db ^ " was not found."))
-  | LocateColException -> CreateDocResponse(false, (col ^ " was not found."))
+  | LocateDBException -> CreateDocResponse(false, (db_name ^ " was not found."))
+  | LocateColException -> CreateDocResponse(false, (col_name ^ " was not found."))
   | _ -> CreateDocResponse(false, "Something went wrong with storing the document.")
 
 (**
  * Given a string representing name of col, creates a col in the environment.
  * On failure, return false. On success, return true.
  *)
-let create_col db col =
-  let db_ref = get_db_ref db in
-  match (db_cols !db_ref |> List.exists (fun x -> (fst !x) = col)) with
-  | true -> CreateColResponse(false, (col ^ " already exists."))
+let create_col db_name col_name =
+  let db = get_db db_name in
+  match (Hashtbl.mem (fst db) col_name) with
+  | true -> CreateColResponse(false, (col_name ^ " already exists."))
   | false -> try (
-      db_ref := (db_name !db_ref, (ref (col, []))::(db_cols !db_ref), true);
+      Hashtbl.add (fst db) col_name [];
       CreateColResponse(true, "Success!")
     ) with
     | _ -> CreateColResponse(false, "Something went wrong with storing the collection.")
@@ -231,10 +231,10 @@ let check_doc doc query_doc =
  * the environment.
  * On failure, return false. On success, return true.
  *)
-let query_col db col query_doc =
+let query_col db_name col_name query_doc =
   try (
-    let col = !(db |> get_db_ref |> get_col_ref col) in
-    let query_result = List.filter (fun d -> check_doc d query_doc) (snd col) in
+    let col = (db_name |> get_db |> get_col col_name) in
+    let query_result = List.filter (fun d -> check_doc d query_doc) col in
     let query_string = `List(query_result) |> pretty_to_string in
     QueryResponse(true, query_string)
   ) with
@@ -244,31 +244,32 @@ let query_col db col query_doc =
  * Given a string representing name of col, shows a col in the environment.
  * On failure, return false. On success, return true.
  *)
-let show_col db col =
+let show_col db_name col_name =
   try (
-    let col = !(db |> get_db_ref |> get_col_ref col) in
-    let contents = `List(snd col) |> pretty_to_string in
+    let col = (db_name |> get_db |> get_col col_name) in
+    let contents = `List(col) |> pretty_to_string in
     ShowColResponse(true, contents)
   ) with
   | _ ->
-    ShowColResponse(false, "Something went wrong with dropping a collection")
+    ShowColResponse(false, "Something went wrong with showing a collection")
 
-let show_db db = 
+let show_db db_name =
   try (
-    let db = !(db |> get_db_ref) in 
-    let contents = db |> trpl_snd |> List.map (fun c -> !c |> fst) |> stringify_list
-    in 
+    let db_hashtbl = db_name |> get_db |> fst in
+    let contents_list = Hashtbl.fold (fun k _ init -> k::init) db_hashtbl [] in
+    let contents = stringify_list contents_list in
     ShowDBResponse(true, contents)
-  ) with 
-  | _ -> 
+  ) with
+  | _ ->
     ShowDBResponse(false, "Something went wrong with dropping a collection")
 
-let show_catalog () = 
+let show_catalog () =
   try (
-    let contents = !environment |> List.map (fun db -> !db |> trpl_fst) |> stringify_list in 
+    let contents_list = Hashtbl.fold (fun k _ init -> k::init) environment [] in
+    let contents = stringify_list contents_list in
     ShowCatalogResponse(true, contents)
-  ) with 
-  | _ -> 
+  ) with
+  | _ ->
     ShowCatalogResponse(false, "Something went wrong with dropping a collection")
 
 (* -------------------------------REMOVING--------------------------------- *)
@@ -277,36 +278,35 @@ let show_catalog () =
  * Given a string representing name of db, drops a db in the environment.
  * On failure, return false. On success, return true.
  *)
-let drop_db db =
+let drop_db db_name =
   try (
-    let env = !environment in
-    let db_exists = List.exists (fun d -> db_name !d = db) env in
+    let db_exists = Hashtbl.mem environment db_name in
     if db_exists then (
-      environment := List.filter (fun d -> db_name !d <> db) env;
-      remove_db db;
+      Hashtbl.remove environment db_name;
+      remove_db db_name;
       DropDBResponse(true, "Success!")
     ) else (
       raise DropException
     )
   ) with
   | NotInDisc -> DropDBResponse(true, "Success!")
-  | DropException -> DropDBResponse(false, (db ^ " does not exist."))
+  | DropException -> DropDBResponse(false, (db_name ^ " does not exist."))
   | _ -> DropDBResponse(false, "Something went wrong with dropping a db")
 
 (**
  * Given a string representing name of col, drops a col in the environment.
  * On failure, return false. On success, return true.
  *)
-let drop_col db col =
+let drop_col db_name col_name =
   try (
-    let db_ref = get_db_ref db in
-    let db = !db_ref in
-    let col_exists = List.exists (fun c -> (fst !c = col)) (db_cols db) in
+    let (db_hashtbl, _) = get_db db_name in
+    let col_exists = Hashtbl.mem db_hashtbl col_name in
     if col_exists then (
-      db_ref := (db_name db, List.filter (fun c -> (fst !c <> col)) (db_cols db), true);
+      Hashtbl.remove db_hashtbl col_name;
+      set_dirty db_name;
       DropColResponse(true, "Success!")
     ) else
-      DropColResponse(false, (col ^ " does not exist."))
+      DropColResponse(false, (col_name ^ " does not exist."))
   ) with
   | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
 
@@ -315,13 +315,13 @@ let drop_col db col =
  * appropriate docs in the environment. On failure, return false.
  * On success, return true.
  *)
-let remove_doc db col query_doc =
+let remove_doc db_name col_name query_doc =
   try (
-    let db_ref = db |> get_db_ref in
-    let col_ref = db_ref |> get_col_ref col in
-    let col = !col_ref in
-    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col));
-    set_dirty db_ref;
+    let db = db_name |> get_db in
+    let col = get_col col_name db in
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) col in
+    Hashtbl.replace (fst db) col_name new_col;
+    set_dirty db_name;
     RemoveDocResponse(true, "Success!")
   ) with
   | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
@@ -332,12 +332,13 @@ let remove_doc db col query_doc =
  * Given a doc representing criteria to query on, removes all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
-let remove_and_get_doc db col query_doc =
+let remove_and_get_doc db_name col_name query_doc =
   try (
-    let col_ref = db |> get_db_ref |> get_col_ref col in
-    let col = !col_ref in
-    let query = List.filter (fun d -> check_doc d query_doc) (snd col) in
-    col_ref := (fst col, List.filter (fun d -> not (check_doc d query_doc)) (snd col)); (* Keep docs that don't satisfy query_doc *)
+    let db = get_db db_name in
+    let col = get_col col_name db in
+    let query = List.filter (fun d -> check_doc d query_doc) col in
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) col in (* Keep docs that don't satisfy query_doc *)
+    Hashtbl.replace (fst db) col_name new_col;
     query
   ) with
   | _ -> []
@@ -374,14 +375,14 @@ let rec modify_doc doc update_doc =
  * Given a doc representing criteria to query on, removes all appropriate docs,
  * and then inserts the given doc. On failure, return false. On success, return true.
  *)
-let replace_col db col query_doc update_doc =
+let replace_col db_name col_name query_doc update_doc =
   try (
-    let db_ref = db |> get_db_ref in
-    let col_ref = db_ref |> get_col_ref col in
-    let _ = remove_doc db col query_doc in
-    let col = !col_ref in
-    col_ref := (fst col, update_doc::(snd col));
-    set_dirty db_ref;
+    let db = get_db db_name in
+    let col = get_col col_name db in
+    let _ = remove_doc db_name col_name query_doc in
+    let new_col = update_doc::col in
+    Hashtbl.replace (fst db) col_name new_col;
+    set_dirty db_name;
     ReplaceDocResponse(true, "Success!")
   ) with
   | _ -> ReplaceDocResponse(false, "Something went wrong with replacing documents")
@@ -390,17 +391,18 @@ let replace_col db col query_doc update_doc =
  * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
-let update_col db col query_doc update_doc =
+let update_col db_name col_name query_doc update_doc =
   try (
-    let col_ref = db |> get_db_ref |> get_col_ref col in
+    let db = get_db db_name in
+    let col = get_col col_name db in
     let u_doc = match Util.member "$set" update_doc with
       | `Assoc json -> `Assoc json
       | _ -> raise InvalidUpdateDocException in
-    let query = remove_and_get_doc db col query_doc in
-    let col = !col_ref in
-    col_ref := (fst col, (snd col)@(List.map (fun json -> (modify_doc json u_doc)) query));
+    let query = remove_and_get_doc db_name col_name query_doc in
+    let new_col = col@(List.map (fun json -> (modify_doc json u_doc)) query) in
+    Hashtbl.replace (fst db) col_name new_col;
     UpdateColResponse(true, "Success!")
   ) with
     | _ -> UpdateColResponse(false, "Invalid update document provided")
 
-let clear_env () = environment := []
+let clear_env () = Hashtbl.reset environment
