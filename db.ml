@@ -378,8 +378,8 @@ let rec modify_doc doc update_doc =
 let replace_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in
-    let col = get_col col_name db in
     let _ = remove_doc db_name col_name query_doc in
+    let col = get_col col_name db in
     let new_col = update_doc::col in
     Hashtbl.replace (fst db) col_name new_col;
     set_dirty db_name;
@@ -394,11 +394,11 @@ let replace_col db_name col_name query_doc update_doc =
 let update_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in
-    let col = get_col col_name db in
     let u_doc = match Util.member "$set" update_doc with
       | `Assoc json -> `Assoc json
       | _ -> raise InvalidUpdateDocException in
     let query = remove_and_get_doc db_name col_name query_doc in
+    let col = get_col col_name db in
     let new_col = col@(List.map (fun json -> (modify_doc json u_doc)) query) in
     Hashtbl.replace (fst db) col_name new_col;
     UpdateColResponse(true, "Success!")
