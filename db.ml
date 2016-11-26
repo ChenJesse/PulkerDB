@@ -11,7 +11,9 @@ open Persist
  *             | `Null
  *             | `String of string ]
  *)
-
+type dataEntry = (json * doc list) (*replace with a hashtable*)
+type indexFile = {idName:string; idTable: (json,json) Hashtbl.t}
+type indexList = indexFile list
 type response =
   | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
@@ -26,6 +28,7 @@ type response =
   | UpdateColResponse of bool * string
   | ShowDBResponse of bool * string
   | ShowCatalogResponse of bool * string
+  | CreateIndexResponse of bool * string
 
 exception DropException
 exception LocateDBException
@@ -35,7 +38,7 @@ exception InvalidUpdateDocException
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
 
-type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
+type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq | Exists
 
 let environment : catalog = Hashtbl.create 20
 
@@ -212,9 +215,12 @@ let check_doc doc query_doc =
       | "$gt" -> Some Greater
       | "$gte" -> Some GreaterEq
       | "$ne" -> Some NotEq
+      | "$exists" -> Some Exists
       | _ -> None
     in
     match comparator with
+    |Some Exists -> let doc1= Util.member p_key doc in let doc2 = (snd) h in
+    if((doc1 <> `Null && doc2 =`Bool true) || (doc1 = `Null && doc2 = `Bool false)) then true else false
     | Some c ->
       let doc1 = Util.member p_key doc in
       let doc2 = snd h in
@@ -281,7 +287,8 @@ let col = (db |> get_db |> get_col col) in
     Hashtbl.add table t currentDoc;
     ctr:= !ctr+1;
   ) done;
-    (index_name, table) (*The final index, table tuple*)
+    let t = {idName=index_name; idTable = table} in t
+    (*The final index, table tuple*)
 (**
  * Given a string representing name of col, shows a col in the environment.
  * On failure, return false. On success, return true.

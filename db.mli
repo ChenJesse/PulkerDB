@@ -15,6 +15,7 @@ type response =
   | UpdateColResponse of bool * string
   | ShowDBResponse of bool * string
   | ShowCatalogResponse of bool * string
+  | CreateIndexResponse of bool * string
 
 val environment : catalog
 
