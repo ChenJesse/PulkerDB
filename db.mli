@@ -17,6 +17,7 @@ type response =
   | ShowCatalogResponse of bool * string
   | CreateIndexResponse of bool * string
 
+
 val environment : catalog
 
 (**

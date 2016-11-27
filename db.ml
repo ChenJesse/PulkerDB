@@ -11,9 +11,7 @@ open Persist
  *             | `Null
  *             | `String of string ]
  *)
-type dataEntry = (json * doc list) (*replace with a hashtable*)
-type indexFile = {idName:string; idTable: (json,json) Hashtbl.t}
-type indexList = indexFile list
+
 type response =
   | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
@@ -30,6 +28,7 @@ type response =
   | ShowCatalogResponse of bool * string
   | CreateIndexResponse of bool * string
 
+
 exception DropException
 exception LocateDBException
 exception LocateColException
@@ -39,6 +38,7 @@ type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
 
 type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq | Exists
+
 
 let environment : catalog = Hashtbl.create 20
 
@@ -76,10 +76,6 @@ let trpl_fst t = match t with
 let trpl_snd t = match t with
   | (_, b, _) -> b
 
-(**
-*Function for comparing JSON Values with increasing order of priority (i.e. Lists are the largest)
-*
-*)
 let compareJSON (val1:json) (val2:json) =
   match val1,val2 with
   |(`Null, `Null)-> 0
@@ -104,6 +100,7 @@ let compareJSON (val1:json) (val2:json) =
 * Function for sorting keys of my index in increasing order
 *)
 let keysort arr = Array.sort compareJSON arr
+
 (* -------------------------------CREATION------------------------------- *)
 (**
  * Given a string representing name of db, creates a db in the environment.
@@ -123,6 +120,8 @@ let create_db db_name =
         CreateDBResponse(true, "Success!")
       | _ -> CreateDBResponse(false, "Problem with storing database")
 
+
+
 (**
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.
@@ -131,8 +130,10 @@ let create_doc db_name col_name doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-    let new_col = doc::col in
-    Hashtbl.replace (fst db) col_name new_col;
+    let colList = (fst)col in
+    let new_col = doc::colList in
+    let new_colIndex = (new_col, []) in
+    Hashtbl.replace (fst db) col_name new_colIndex;
     set_dirty (db_name);
     CreateDocResponse(true, "Success!")
   ) with
@@ -149,7 +150,7 @@ let create_col db_name col_name =
   match (Hashtbl.mem (fst db) col_name) with
   | true -> CreateColResponse(false, (col_name ^ " already exists."))
   | false -> try (
-      Hashtbl.add (fst db) col_name [];
+      Hashtbl.add (fst db) col_name ([],[]);
       CreateColResponse(true, "Success!")
     ) with
     | _ -> CreateColResponse(false, "Something went wrong with storing the collection.")
@@ -268,15 +269,30 @@ let check_doc doc query_doc =
 let query_col db_name col_name query_doc =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
-    let query_result = List.filter (fun d -> check_doc d query_doc) col in
+    let query_result = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
     let query_string = `List(query_result) |> pretty_to_string in
     QueryResponse(true, query_string)
   ) with
   | _ -> QueryResponse(false, "Query failed for some reason")
 
+let rec extractKeys listTbl keyList =
+  match listTbl with
+  |[]-> keyList
+  |(k,v)::tl -> extractKeys tl (k::keyList)
+
+let keySet tbl =
+  let listTbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
+  let arrNew = Array.make (List.length listTbl) `Null in
+  let finalList = extractKeys listTbl [] in
+  let ctr = ref(0) in
+  while(!ctr<List.length finalList)
+  do (Array.set arrNew !ctr (List.nth finalList !ctr);
+ctr:= !ctr +1) done;
+  arrNew
+
 let createIndex db col index_name querydoc=
 let col = (db |> get_db |> get_col col) in
-    let query_result = List.filter (fun d-> check_doc d querydoc) (col) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
+    let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
      let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
     let ctr = ref(0) in
     let len = List.length query_result in
@@ -287,8 +303,11 @@ let col = (db |> get_db |> get_col col) in
     Hashtbl.add table t currentDoc;
     ctr:= !ctr+1;
   ) done;
-    let t = {idName=index_name; idTable = table} in t
+    let keysTb =  (keySet table) in
+    keysort (keysTb);
+    let t = {idName=index_name; idTable = table; keys = keysTb} in t
     (*The final index, table tuple*)
+
 (**
  * Given a string representing name of col, shows a col in the environment.
  * On failure, return false. On success, return true.
@@ -296,7 +315,7 @@ let col = (db |> get_db |> get_col col) in
 let show_col db_name col_name =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
-    let contents = `List(col) |> pretty_to_string in
+    let contents = `List((fst)col) |> pretty_to_string in
     ShowColResponse(true, contents)
   ) with
   | _ ->
@@ -368,8 +387,8 @@ let remove_doc db_name col_name query_doc =
   try (
     let db = db_name |> get_db in
     let col = get_col col_name db in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) col in
-    Hashtbl.replace (fst db) col_name new_col;
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     set_dirty db_name;
     RemoveDocResponse(true, "Success!")
   ) with
@@ -385,9 +404,9 @@ let remove_and_get_doc db_name col_name query_doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-    let query = List.filter (fun d -> check_doc d query_doc) col in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) col in (* Keep docs that don't satisfy query_doc *)
-    Hashtbl.replace (fst db) col_name new_col;
+    let query = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in (* Keep docs that don't satisfy query_doc *)
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     query
   ) with
   | _ -> []
@@ -427,10 +446,10 @@ let rec modify_doc doc update_doc =
 let replace_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in
-    let col = get_col col_name db in
     let _ = remove_doc db_name col_name query_doc in
-    let new_col = update_doc::col in
-    Hashtbl.replace (fst db) col_name new_col;
+    let col = get_col col_name db in
+    let new_col = update_doc::((fst)col) in
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     set_dirty db_name;
     ReplaceDocResponse(true, "Success!")
   ) with
@@ -443,13 +462,13 @@ let replace_col db_name col_name query_doc update_doc =
 let update_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in
-    let col = get_col col_name db in
     let u_doc = match Util.member "$set" update_doc with
       | `Assoc json -> `Assoc json
       | _ -> raise InvalidUpdateDocException in
     let query = remove_and_get_doc db_name col_name query_doc in
-    let new_col = col@(List.map (fun json -> (modify_doc json u_doc)) query) in
-    Hashtbl.replace (fst db) col_name new_col;
+    let col = get_col col_name db in
+    let new_col = ((fst)col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     UpdateColResponse(true, "Success!")
   ) with
     | _ -> UpdateColResponse(false, "Invalid update document provided")

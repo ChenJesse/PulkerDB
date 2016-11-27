@@ -10,11 +10,15 @@
  *)
 type doc = Yojson.Basic.json
 
-type col = doc list
+type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: (Yojson.Basic.json) array}
 
-type db = ((string, col) Hashtbl.t * bool)
+type indexList = indexFile list
 
-type catalog = ((string, db) Hashtbl.t)
+type col = doc list * indexList
+
+type db = (string, col) Hashtbl.t * bool
+
+type catalog = (string, db) Hashtbl.t
 
 exception NotInDisc
 
