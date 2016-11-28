@@ -8,9 +8,14 @@
  *             | `Null
  *             | `String of string ]
  *)
+ open Tree
+
+module KeyComparison:(Comparable with type t = Yojson.Basic.json)
+
+module Tree:(Dictionary with type Key.t = Yojson.Basic.json)
 type doc = Yojson.Basic.json
 
-type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: (Yojson.Basic.json) array}
+type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json array}
 
 type indexList = indexFile list
 
@@ -22,7 +27,16 @@ type catalog = (string, db) Hashtbl.t
 
 exception NotInDisc
 
+
+
+(**
+ *Compares to JSON files and returns -1 0 or 1 depending on the result.
+ *)
+
+val compareJSON: Yojson.Basic.json -> Yojson.Basic.json -> int
+
 val remove_db: string -> unit
+
 
 (*
  * Writes a collection to a json file.

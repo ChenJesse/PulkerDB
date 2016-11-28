@@ -1,5 +1,6 @@
 open Yojson.Basic
 open Persist
+open Tree
 
 (**
  * Taken from Yojson.Basic documentation:
@@ -76,25 +77,6 @@ let trpl_fst t = match t with
 let trpl_snd t = match t with
   | (_, b, _) -> b
 
-let compareJSON (val1:json) (val2:json) =
-  match val1,val2 with
-  |(`Null, `Null)-> 0
-  |(`Null, _) -> -1
-  |(_, `Null) -> 1
-  |(`Int a , `Int b)-> if(a > b) then (1) else (if(a<b) then -1 else 0)
-  |(`Int a, _)-> -1
-  |(_, `Int b) -> 1
-  |(`Float a, `Float b) -> if(a > b) then (1) else (if(a<b) then -1 else 0)
-  |(`Float a, _)-> -1
-  |(_, `Float b) -> 1
-  |(`String a, `String b) -> if( a > b) then (1) else (if(a<b) then -1 else 0)
-  |(`String a, _)-> -1
-  |(_, `String b) -> 1
-  |(`Bool a, `Bool b) -> if( a > b) then (1) else (if ( a < b ) then -1 else 0)
-  |(`Bool a, _)-> -1
-  |(_, `Bool b) -> 1
-  |(`List a, `List b) -> if( a > b) then (1) else (if(a<b) then -1 else 0) (*The logic with this one might not be 100% right..*)
-
 
 (**
 * Function for sorting keys of my index in increasing order
@@ -125,6 +107,7 @@ let create_db db_name =
 (**
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.
+
  *)
 let create_doc db_name col_name doc =
   try (
@@ -188,7 +171,7 @@ let unwrap_op op =
 let compare_int op (doc1 : doc) (doc2 : doc) converter =
   match converter with
   | ToInt x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
+  | _ -> failwith "Inc*orrect converter"
 
 let compare_bool op (doc1 : doc) (doc2 : doc) converter =
   match converter with
@@ -262,6 +245,7 @@ let check_doc doc query_doc =
   | _ -> failwith "Invalid query JSON"
 
 (**
+ * Check first for indices, first thing that has indices you want to make that the docs and then query on that list otherwise you do what we're already doing.
  * Given a string representing a query JSON, looks for matching docs in
  * the environment.
  * On failure, return false. On success, return true.
@@ -290,8 +274,9 @@ let keySet tbl =
 ctr:= !ctr +1) done;
   arrNew
 
-let createIndex db col index_name querydoc=
-let col = (db |> get_db |> get_col col) in
+
+let createIndex db col_name index_name querydoc=
+let col = (db |> get_db |> get_col col_name) in
     let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
      let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
     let ctr = ref(0) in
@@ -305,7 +290,20 @@ let col = (db |> get_db |> get_col col) in
   ) done;
     let keysTb =  (keySet table) in
     keysort (keysTb);
-    let t = {idName=index_name; idTable = table; keys = keysTb} in t
+    let t = {idName=index_name; idTable = table; keys = keysTb} in
+    let idList = t::((snd) col) in
+    let new_col = ((fst)col, idList) in
+    let olddb = db |> get_db in
+    Hashtbl.replace ((fst)olddb) col_name new_col;
+    let ctr2 = ref(0) in
+    let len = Array.length keysTb in
+    let t = ref(Tree.empty) in
+    while(!ctr2 < len)
+    do (
+     t:=(Tree.insert (Array.get keysTb !ctr2) (Array.get keysTb !ctr2) !t);
+     ctr2:= !ctr2+1
+    ) done;
+    t
     (*The final index, table tuple*)
 
 (**
