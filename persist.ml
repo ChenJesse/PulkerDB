@@ -11,7 +11,7 @@
 open Tree
 type doc = Yojson.Basic.json
 
-type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: key t ref}
+type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json array}
 
 type indexList = indexFile list
 

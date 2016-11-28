@@ -77,7 +77,6 @@ let trpl_fst t = match t with
 let trpl_snd t = match t with
   | (_, b, _) -> b
 
-
 (**
 * Function for sorting keys of my index in increasing order
 *)
@@ -273,6 +272,7 @@ let keySet tbl =
   do (Array.set arrNew !ctr (List.nth finalList !ctr);
 ctr:= !ctr +1) done;
   arrNew
+
 
 
 let createIndex db col_name index_name querydoc=
