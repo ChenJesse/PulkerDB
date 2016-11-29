@@ -223,12 +223,21 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})"; parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
       parse "test.c.remove({a: 1})"; parse "test.c.show()"));
-
   "test30" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 1234 }, { \"a\": { \"b\": { \"c\": 2 } } } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})"; parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
       parse "test.c.replace({a: 1}| {a: 1234})"; parse "test.c.show()"));
+  "test31" >:: (fun _ -> assert_equal (AggregateResponse(true, "[ { \"_id\": 1, \"asdf\": 101 }, { \"_id\": 2, \"asdf\": 1000 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
+      parse "test.c.insert({a: 1, b: 1})";
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}})"));
+  "test32" >:: (fun _ -> assert_equal (AggregateResponse(true, "[\n  { \"_id\": 1, \"asdf\": 101, \"fdsa\": 999999 },\n  { \"_id\": 2, \"asdf\": 1000, \"fdsa\": 999 }\n]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 100, c: 9})"; parse "test.c.insert({a: 2, b: 1000, c: 999})";
+      parse "test.c.insert({a: 1, b: 1, c: 999999})";
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, fdsa: {\"$max\": \"c\"}})"));
 ]
 
 let suite =

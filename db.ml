@@ -26,11 +26,13 @@ type response =
   | UpdateColResponse of bool * string
   | ShowDBResponse of bool * string
   | ShowCatalogResponse of bool * string
+  | AggregateResponse of bool * string
 
 exception DropException
 exception LocateDBException
 exception LocateColException
 exception InvalidUpdateDocException
+exception InvalidAggDocException
 
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
@@ -271,6 +273,65 @@ let show_catalog () =
   ) with
   | _ ->
     ShowCatalogResponse(false, "Something went wrong with dropping a collection")
+
+(* -------------------------------AGGREGATION--------------------------------- *)
+
+let bucketize db_name col_name attr = 
+  let col = (db_name |> get_db |> get_col col_name) in
+  let buckets = Hashtbl.create 20 in 
+  List.iter (fun doc -> 
+    let value = Util.member attr doc in 
+    if Hashtbl.mem buckets value then 
+      let bucket = Hashtbl.find buckets value in 
+      Hashtbl.replace buckets value (doc::bucket)
+    else 
+      Hashtbl.add buckets value [doc]
+  ) col;
+  buckets
+
+let aggregator bucket op t_field = 
+  match op with 
+  | "$sum" -> `Int (List.fold_left (fun acc doc -> let v = Util.(member t_field doc |> to_int) in 
+                              acc + v) 0 bucket)
+  | "$max" -> `Int (List.fold_left (fun max doc -> let v = Util.(member t_field doc |> to_int) in 
+                              if v > max then v else max) min_int bucket)
+  | "$min" -> `Int (List.fold_left (fun min doc -> let v = Util.(member t_field doc |> to_int) in 
+                              if v < min then v else min) max_int bucket)
+  | _ -> failwith "Aggregator failed"
+
+let aggregation_helper acc agg_lst buckets = 
+  Hashtbl.iter (fun key bucket -> 
+    let result_doc = `Assoc (
+      ("_id", key)::
+      List.map (fun (field_name, field) -> 
+        match field with 
+        | `Assoc lst -> 
+          let (op, t_field) = List.hd lst in 
+          (field_name, aggregator bucket op (t_field |> Util.to_string))
+        | _ -> raise InvalidAggDocException
+      ) agg_lst
+    ) in 
+    acc := result_doc::(!acc)
+  ) buckets
+
+(*db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})*)
+let aggregate db col agg_doc = 
+  try (
+    let bucket_attr = Util.(member "_id" agg_doc |> to_string) in 
+    let buckets = bucketize db col bucket_attr in 
+    (* Each iteration of the helper will go through a bucket and create the aggregated json *)
+    match agg_doc with
+    | `Assoc lst -> 
+      let acc = ref [] in 
+      let filtered = List.filter (fun pair -> (fst pair) <> "_id") lst in 
+      aggregation_helper acc filtered buckets; 
+      let agg_string = `List(!acc) |> pretty_to_string in 
+      AggregateResponse(true, agg_string)
+    | _ -> AggregateResponse(false, "Invalid query JSON")
+  ) with 
+  | _ -> AggregateResponse(false, "Aggregation failed.")
+
+
 
 (* -------------------------------REMOVING--------------------------------- *)
 

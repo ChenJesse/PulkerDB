@@ -72,6 +72,9 @@ let rec loop input =
     | UpdateColResponse (x, msg) ->
       if x then print_output "Successfully updated collection!"
       else print_error msg
+    | AggregateResponse (x, output) -> 
+      if x then print_output output
+    else print_error "Aggregation failed."
     | ParseErrorResponse(x, output) ->
       print_error ("Parsing failed. " ^ output)
   );

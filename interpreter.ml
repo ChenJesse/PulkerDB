@@ -114,6 +114,7 @@ let parse input =
         | "show" -> if d = "" then show_col a b else raise ParseError
         | "insert" -> parse_json d |> create_doc a b
         | "find" ->  parse_json d |> query_col a b 
+        | "aggregate" -> parse_json d |> aggregate a b
         | "remove" -> parse_json d |> remove_doc a b
         | "replace" -> 
           let pair = tuplize_parameters d in 

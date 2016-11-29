@@ -15,6 +15,7 @@ type response =
   | UpdateColResponse of bool * string
   | ShowDBResponse of bool * string
   | ShowCatalogResponse of bool * string
+  | AggregateResponse of bool * string
 
 val environment : catalog
 
@@ -92,6 +93,8 @@ val show_catalog: unit -> response
 val query_col : string -> string -> doc -> response
 
 val check_doc : doc -> doc -> bool
+
+val aggregate: string -> string -> doc -> response
 
 (**
  * Test only method to reset the entire environment
