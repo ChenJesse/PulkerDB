@@ -12,21 +12,25 @@ let help_msg = "
                         REPL COMMANDS
 ---------------------------------------------------------------
 | -exit : Exit the programming gracefully                     |
-| -about : Learn more about this project                      |
+| -gen_doc : Information on format for ANY_DOC                |
+| -query_doc : Information on format for QUERY_DOC            |
+| -update_doc : Information on format for UPDATE_DOC          |
+| -agg_doc : Information on format for for AGG_DOC            |
 ---------------------------------------------------------------
 
                       DATABASE COMMANDS
 ---------------------------------------------------------------
 | use DATABASE_NAME                                           |
 | db.dropDatabase()                                           |
-| db.createCollection(name)                                   |
+| db.createCollection(COLLECTION_NAME)                        |
 | db.COLLECTION_NAME.drop()                                   |
-| db.COLLECTION_NAME.insert(document)                         |
+| db.COLLECTION_NAME.insert(GEN_DOC)                          |
 | db.COLLECTION_NAME.find()                                   |
 | db.COLLECTION_NAME.show()                                   |
-| db.COLLECTION_NAME.replace(SELECTION_CRITERIA|UPDATED_DATA) |
-| db.COLLECTION_NAME.update(SELECTION_CRITERIA|UPDATED_DATA)  |
-| db.COLLECTION_NAME.remove(DELLETION_CRITERIA)               |
+| db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)             |
+| db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC)           |
+| db.COLLECTION_NAME.remove(QUERY_DOC)                        |
+| db.COLLECTION_NAME.aggregate(AGG_DOC)
 --------------------------------------------------------------- \n"
 
 let rec loop input =
@@ -34,6 +38,10 @@ let rec loop input =
     let () = Persist.write_env Db.environment in
     exit(0)
   else if input = "-help" then ANSITerminal.(print_string [green] help_msg)
+  else if input = "-gen_doc" then ANSITerminal.(print_string [green] "gendoc")
+  else if input = "-query_doc" then ANSITerminal.(print_string [green] "querydoc")
+  else if input = "-update_doc" then ANSITerminal.(print_string [green] "updatedoc")
+else if input = "-agg_doc" then ANSITerminal.(print_string [green] "aggdoc")
   else
     match parse input with
     | CreateDBResponse (x, msg) ->
@@ -72,6 +80,9 @@ let rec loop input =
     | UpdateColResponse (x, msg) ->
       if x then print_output "Successfully updated collection!"
       else print_error msg
+    | AggregateResponse (x, output) -> 
+      if x then print_output output
+    else print_error "Aggregation failed."
     | ParseErrorResponse(x, output) ->
       print_error ("Parsing failed. " ^ output)
   );

@@ -13,12 +13,13 @@ type response = Db.response
 
 exception ParseError
 exception ImproperNameError
+exception ParseDocError
 
 (**
  * given a valid string of a JSON, will output
  * corresponding doc with the appropriate structure
  *)
-let parse_json json_string = try (from_string json_string) with | _ -> raise ParseError
+let parse_json json_string = try (from_string json_string) with | _ -> raise ParseDocError
 
 (**
  * Trims white space, convert to lowercase
@@ -114,6 +115,7 @@ let parse input =
         | "show" -> if d = "" then show_col a b else raise ParseError
         | "insert" -> parse_json d |> create_doc a b
         | "find" ->  parse_json d |> query_col a b 
+        | "aggregate" -> parse_json d |> aggregate a b
         | "remove" -> parse_json d |> remove_doc a b
         | "replace" -> 
           let pair = tuplize_parameters d in 
@@ -125,6 +127,7 @@ let parse input =
       ) 
     | _ -> failwith "Improper tuple"
   ) with 
-  | ParseError -> ParseErrorResponse(false, "Invalid command")
-  | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name")
-  | _ -> ParseErrorResponse(false, "Something weird happened")
+  | ParseDocError -> ParseErrorResponse(false, "Invalid document provided. Refer to documentation in -help for more information.")
+  | ParseError -> ParseErrorResponse(false, "Invalid command inputed.")
+  | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name.")
+  | _ -> ParseErrorResponse(false, "Something unexpected happened.")
