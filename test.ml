@@ -238,6 +238,11 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 100, c: 9})"; parse "test.c.insert({a: 2, b: 1000, c: 999})";
       parse "test.c.insert({a: 1, b: 1, c: 999999})";
       parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, fdsa: {\"$max\": \"c\"}})"));
+  "test33" >:: (fun _ -> assert_equal (AggregateResponse(true, "[ { \"_id\": 1, \"asdf\": 2 }, { \"_id\": 2, \"asdf\": 1 } ]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
+      parse "test.c.insert({a: 1, b: 1})";
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": 1}})"));
 ]
 
 let suite =

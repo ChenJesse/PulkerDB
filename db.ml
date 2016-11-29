@@ -33,6 +33,11 @@ exception LocateDBException
 exception LocateColException
 exception InvalidUpdateDocException
 exception InvalidAggDocException
+exception InvalidQueryDocException
+
+let unexpected_error = "Unexpected error"
+let db_find_error db_name = db_name ^ " was not found."
+let col_find_error col_name = col_name ^ " was not found."
 
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
@@ -52,7 +57,7 @@ let get_db db_name : db =
         read_db db_name empty_db;
         empty_db
   ) with
-    | _ -> raise LocateDBException
+  | _ -> raise LocateDBException
 
 let get_col (col:string) (db:db) : col =
   try (
@@ -92,7 +97,7 @@ let create_db db_name =
       | NotInDisc ->
         add_db_env db_name (Hashtbl.create 100, false);
         CreateDBResponse(true, "Success!")
-      | _ -> CreateDBResponse(false, "Problem with storing database")
+      | _ -> CreateDBResponse(false, unexpected_error)
 
 (**
  * Given a string representation of JSON, creates a doc in the environment.
@@ -107,23 +112,25 @@ let create_doc db_name col_name doc =
     set_dirty (db_name);
     CreateDocResponse(true, "Success!")
   ) with
-  | LocateDBException -> CreateDocResponse(false, (db_name ^ " was not found."))
-  | LocateColException -> CreateDocResponse(false, (col_name ^ " was not found."))
-  | _ -> CreateDocResponse(false, "Something went wrong with storing the document.")
+  | LocateDBException -> CreateDocResponse(false, db_find_error db_name)
+  | LocateColException -> CreateDocResponse(false, col_find_error col_name)
+  | _ -> CreateDocResponse(false, unexpected_error)
 
 (**
  * Given a string representing name of col, creates a col in the environment.
  * On failure, return false. On success, return true.
  *)
 let create_col db_name col_name =
-  let db = get_db db_name in
-  match (Hashtbl.mem (fst db) col_name) with
-  | true -> CreateColResponse(false, (col_name ^ " already exists."))
-  | false -> try (
-      Hashtbl.add (fst db) col_name [];
-      CreateColResponse(true, "Success!")
-    ) with
-    | _ -> CreateColResponse(false, "Something went wrong with storing the collection.")
+  try (
+    let db = get_db db_name in
+    match (Hashtbl.mem (fst db) col_name) with
+    | true -> CreateColResponse(false, (col_name ^ " already exists."))
+    | false -> 
+        Hashtbl.add (fst db) col_name [];
+        CreateColResponse(true, "Success!")
+  ) with
+  | LocateDBException -> ShowColResponse(false, db_find_error db_name)
+  | _ -> CreateColResponse(false, unexpected_error)
 
 (* -------------------------------QUERYING-------------------------------- *)
 (* Returns true if the doc is a nested json*)
@@ -226,7 +233,7 @@ let check_doc doc query_doc =
   in
   match query_doc with
   | `Assoc lst -> helper doc lst "" true
-  | _ -> failwith "Invalid query JSON"
+  | _ -> raise InvalidQueryDocException
 
 (**
  * Given a string representing a query JSON, looks for matching docs in
@@ -240,7 +247,10 @@ let query_col db_name col_name query_doc =
     let query_string = `List(query_result) |> pretty_to_string in
     QueryResponse(true, query_string)
   ) with
-  | _ -> QueryResponse(false, "Query failed for some reason")
+  | InvalidQueryDocException -> ShowColResponse(false, "Invalid query doc. Refer to -query_doc for more information.")
+  | LocateDBException -> ShowColResponse(false, db_find_error db_name)
+  | LocateColException -> ShowColResponse(false, col_find_error col_name)
+  | _ -> QueryResponse(false, unexpected_error)
 
 (**
  * Given a string representing name of col, shows a col in the environment.
@@ -252,8 +262,9 @@ let show_col db_name col_name =
     let contents = `List(col) |> pretty_to_string in
     ShowColResponse(true, contents)
   ) with
-  | _ ->
-    ShowColResponse(false, "Something went wrong with showing a collection")
+  | LocateDBException -> ShowColResponse(false, db_find_error db_name)
+  | LocateColException -> ShowColResponse(false, col_find_error col_name)
+  | _ -> ShowColResponse(false, unexpected_error)
 
 let show_db db_name =
   try (
@@ -262,8 +273,8 @@ let show_db db_name =
     let contents = stringify_list contents_list in
     ShowDBResponse(true, contents)
   ) with
-  | _ ->
-    ShowDBResponse(false, "Something went wrong with dropping a collection")
+  | LocateDBException -> ShowDBResponse(false, db_find_error db_name)
+  | _ -> ShowDBResponse(false, unexpected_error)
 
 let show_catalog () =
   try (
@@ -271,8 +282,7 @@ let show_catalog () =
     let contents = stringify_list contents_list in
     ShowCatalogResponse(true, contents)
   ) with
-  | _ ->
-    ShowCatalogResponse(false, "Something went wrong with dropping a collection")
+  | _ -> ShowCatalogResponse(false, unexpected_error)
 
 (* -------------------------------AGGREGATION--------------------------------- *)
 
@@ -289,7 +299,7 @@ let bucketize db_name col_name attr =
   ) col;
   buckets
 
-let aggregator bucket op t_field = 
+let aggregator_attr bucket op t_field = 
   match op with 
   | "$sum" -> `Int (List.fold_left (fun acc doc -> let v = Util.(member t_field doc |> to_int) in 
                               acc + v) 0 bucket)
@@ -299,15 +309,27 @@ let aggregator bucket op t_field =
                               if v < min then v else min) max_int bucket)
   | _ -> failwith "Aggregator failed"
 
+(**
+ * For summing up with constants for a count of buckets
+ *)
+let aggregator_const bucket op t_field = 
+  match op with 
+  | "$sum" -> `Int (List.fold_left (fun acc doc -> acc + t_field) 0 bucket)
+  | _ -> failwith "Aggregator failed"
+
 let aggregation_helper acc agg_lst buckets = 
   Hashtbl.iter (fun key bucket -> 
     let result_doc = `Assoc (
       ("_id", key)::
       List.map (fun (field_name, field) -> 
         match field with 
-        | `Assoc lst -> 
-          let (op, t_field) = List.hd lst in 
-          (field_name, aggregator bucket op (t_field |> Util.to_string))
+        | `Assoc lst -> (
+            let (op, t_field) = List.hd lst in 
+            try (
+              (field_name, aggregator_attr bucket op (t_field |> Util.to_string))
+            ) with 
+            | _ -> (field_name, aggregator_const bucket op (t_field |> Util.to_int))
+          )
         | _ -> raise InvalidAggDocException
       ) agg_lst
     ) in 
@@ -315,10 +337,10 @@ let aggregation_helper acc agg_lst buckets =
   ) buckets
 
 (*db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})*)
-let aggregate db col agg_doc = 
+let aggregate db_name col_name agg_doc = 
   try (
     let bucket_attr = Util.(member "_id" agg_doc |> to_string) in 
-    let buckets = bucketize db col bucket_attr in 
+    let buckets = bucketize db_name col_name bucket_attr in 
     (* Each iteration of the helper will go through a bucket and create the aggregated json *)
     match agg_doc with
     | `Assoc lst -> 
@@ -327,11 +349,11 @@ let aggregate db col agg_doc =
       aggregation_helper acc filtered buckets; 
       let agg_string = `List(!acc) |> pretty_to_string in 
       AggregateResponse(true, agg_string)
-    | _ -> AggregateResponse(false, "Invalid query JSON")
+    | _ -> AggregateResponse(false, "Error with aggregating response. Refer to -agg_doc for more information.")
   ) with 
-  | _ -> AggregateResponse(false, "Aggregation failed.")
-
-
+  | LocateDBException -> AggregateResponse(false, db_find_error db_name)
+  | LocateColException -> AggregateResponse(false, col_find_error col_name)
+  | _ -> AggregateResponse(false, "Error with aggregating response. Refer to -agg_doc for more information.")
 
 (* -------------------------------REMOVING--------------------------------- *)
 
@@ -351,8 +373,8 @@ let drop_db db_name =
     )
   ) with
   | NotInDisc -> DropDBResponse(true, "Success!")
-  | DropException -> DropDBResponse(false, (db_name ^ " does not exist."))
-  | _ -> DropDBResponse(false, "Something went wrong with dropping a db")
+  | DropException -> DropDBResponse(false, db_find_error db_name)
+  | _ -> DropDBResponse(false, unexpected_error)
 
 (**
  * Given a string representing name of col, drops a col in the environment.
@@ -367,9 +389,9 @@ let drop_col db_name col_name =
       set_dirty db_name;
       DropColResponse(true, "Success!")
     ) else
-      DropColResponse(false, (col_name ^ " does not exist."))
+      DropColResponse(false, col_find_error col_name)
   ) with
-  | _ -> DropColResponse(false, "Something went wrong with dropping a collection")
+  | _ -> DropColResponse(false, unexpected_error)
 
 (**
  * Given a doc representing criteria to query on, removes all
@@ -385,7 +407,9 @@ let remove_doc db_name col_name query_doc =
     set_dirty db_name;
     RemoveDocResponse(true, "Success!")
   ) with
-  | _ -> RemoveDocResponse(false, "Something went wrong with removing documents")
+  | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
+  | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
+  | _ -> RemoveDocResponse(false, "Error with removing documents. Refer to -query_doc for more information.")
 
 (* -------------------------------UPDATING/REPLACING--------------------------------- *)
 
@@ -446,7 +470,10 @@ let replace_col db_name col_name query_doc update_doc =
     set_dirty db_name;
     ReplaceDocResponse(true, "Success!")
   ) with
-  | _ -> ReplaceDocResponse(false, "Something went wrong with replacing documents")
+  | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
+  | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
+  | _ -> ReplaceDocResponse(false, "Error with replacing doc. Ensure that the query document
+    is in the correct format. Refer to -query_doc for more information.")
 
 (**
  * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
@@ -464,6 +491,9 @@ let update_col db_name col_name query_doc update_doc =
     Hashtbl.replace (fst db) col_name new_col;
     UpdateColResponse(true, "Success!")
   ) with
-    | _ -> UpdateColResponse(false, "Invalid update document provided")
+  | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
+  | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
+  | _ -> UpdateColResponse(false, "Error with updating collection. 
+    Refer to -query_doc and -update_doc for more information.")
 
 let clear_env () = Hashtbl.reset environment
