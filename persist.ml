@@ -11,7 +11,7 @@
 open Tree
 type doc = Yojson.Basic.json
 
-type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json array}
+type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json list Tree.tree ref}
 
 type indexList = indexFile list
 
@@ -29,37 +29,6 @@ exception NotInDisc
  * requires:
  *   - [filename] is a string
  *)
- let compareJSON (val1:Yojson.Basic.json) (val2:Yojson.Basic.json) =
-  match val1,val2 with
-  |(`Null, `Null)-> 0
-  |(`Null, _) -> -1
-  |(_, `Null) -> 1
-  |(`Int a , `Int b)-> if(a > b) then (1) else (if(a<b) then -1 else 0)
-  |(`Int a, _)-> -1
-  |(_, `Int b) -> 1
-  |(`Float a, `Float b) -> if(a > b) then (1) else (if(a<b) then -1 else 0)
-  |(`Float a, _)-> -1
-  |(_, `Float b) -> 1
-  |(`String a, `String b) -> if( a > b) then (1) else (if(a<b) then -1 else 0)
-  |(`String a, _)-> -1
-  |(_, `String b) -> 1
-  |(`Bool a, `Bool b) -> if( a > b) then (1) else (if ( a < b ) then -1 else 0)
-  |(`Bool a, _)-> -1
-  |(_, `Bool b) -> 1
-  |(`List a, `List b) -> if( a > b) then (1) else (if(a<b) then -1 else 0) (*The logic with this one might not be 100% right..*)
-
-  module KeyComparison:(Comparable with type t = Yojson.Basic.json)  = struct
-  type t =Yojson.Basic.json
-  let compare x y = (match compareJSON x y with
-  |(-1)-> `LT
-  |0-> `EQ
-  |1 -> `GT)
-   let format fmt d = Format.fprintf fmt "<abstr>"
-     let getKeyType (a:t) = a
-   end
-
-
-module Tree = MakeTreeDictionary(KeyComparison)
 
 let col filename =
   let len = String.length filename in

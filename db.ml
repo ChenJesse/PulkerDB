@@ -102,19 +102,58 @@ let create_db db_name =
       | _ -> CreateDBResponse(false, "Problem with storing database")
 
 
+ let rec indexChanger ogDoc doc col =
+    match doc with
+   |[] -> ()
+   |(k,v)::tl-> let loopCondition = true in
+                    let ctr = ref(0) in
+                    let idList = (snd) col in
+                      while(!ctr < (List.length idList) && loopCondition = true) do
+                      (
+                        let curIndex = List.nth idList !ctr in
+                        if((curIndex.idName) = k) then
+                        (
+                          print_endline "found a match and changing it";
+                          let tree = curIndex.keys in
+                          print_endline (string_of_int (Tree.size !tree));
+                          tree:= (Tree.insert (v) ([ogDoc]) (!tree) );
+                          print_endline (string_of_int (Tree.size !tree));
+                          loopCondition = false;
+                          ctr:=!ctr+1;
+                          ()
+                       )
+                        else (
+                            ctr:= !ctr+1
+                        )
+                      ) done; indexChanger ogDoc tl col
+
+  let rec indexUpdater (ogDoc) (doc) col =
+  match doc with
+  |`Assoc a->( match a with |((b:string),(c:Tree.key))::tl -> indexChanger ogDoc a col)
+  |_ -> ()
+
+
+
 
 (**
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.
 
  *)
+
+ let rec getIndex index_name index =
+ match index with
+ |[]->Tree.empty
+ |{ idName = a; idTable =_; keys= c}::tl-> print_endline "matches"; if(a = index_name) then( (print_endline "matches"); !c )else getIndex index_name tl
+
 let create_doc db_name col_name doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
     let colList = (fst)col in
     let new_col = doc::colList in
-    let new_colIndex = (new_col, []) in
+    indexUpdater doc doc col;
+    let new_colIndex = (new_col, (snd) col) in
     Hashtbl.replace (fst db) col_name new_colIndex;
     set_dirty (db_name);
     CreateDocResponse(true, "Success!")
@@ -290,20 +329,21 @@ let col = (db |> get_db |> get_col col_name) in
   ) done;
     let keysTb =  (keySet table) in
     keysort (keysTb);
-    let t = {idName=index_name; idTable = table; keys = keysTb} in
+    let ctr2 = ref(0) in
+    let len = Array.length keysTb in
+    let tree = ref(Tree.empty) in
+    while(!ctr2 < len)
+    do (
+     tree:=(Tree.insert (Array.get keysTb !ctr2) (Hashtbl.find_all table (Array.get keysTb !ctr2)) !tree);
+     ctr2:= !ctr2+1
+    ) done;
+   let t = {idName=index_name; idTable = table; keys = tree} in
     let idList = t::((snd) col) in
     let new_col = ((fst)col, idList) in
     let olddb = db |> get_db in
     Hashtbl.replace ((fst)olddb) col_name new_col;
-    let ctr2 = ref(0) in
-    let len = Array.length keysTb in
-    let t = ref(Tree.empty) in
-    while(!ctr2 < len)
-    do (
-     t:=(Tree.insert (Array.get keysTb !ctr2) (Array.get keysTb !ctr2) !t);
-     ctr2:= !ctr2+1
-    ) done;
-    t
+    tree
+
     (*The final index, table tuple*)
 
 (**

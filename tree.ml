@@ -1,41 +1,23 @@
-exception Unimplemented
+  type key = Yojson.Basic.json
 
-module type Comparable =
-  sig
-    type t
-    val compare : t -> t -> [ `EQ | `GT | `LT ]
-    val format : Format.formatter -> t -> unit
-  end
-
-module type Dictionary =
-  sig
-    module Key : Comparable
-    type key = Key.t
-    type 'value t
-    val rep_ok : 'value t  -> 'value t
-    val empty : 'value t
-    val is_empty : 'value t -> bool
-    val size : 'value t -> int
-    val insert : key -> 'value -> 'value t -> 'value t
-    val member : key -> 'value t -> bool
-    val find : key -> 'value t -> 'value option
-    val remove : key -> 'value t -> 'value t
-    val choose : 'value t -> (key * 'value) option
-    val fold : (key -> 'value -> 'acc -> 'acc) -> 'acc -> 'value t -> 'acc
-    val to_list : 'value t -> (key * 'value) list
-    val format : (Format.formatter -> 'value -> unit)
-                  -> Format.formatter -> 'value t -> unit
-  end
-
-module type DictionaryMaker =
-  functor (C : Comparable) -> Dictionary with type Key.t = C.t
-
-
-
-module MakeTreeDictionary (C : Comparable) = struct
-  module Key = C
-  type key = C.t
-
+  let compareJSON (val1:Yojson.Basic.json) (val2:Yojson.Basic.json) =
+  match val1,val2 with
+  |(`Null, `Null)-> 0
+  |(`Null, _) -> -1
+  |(_, `Null) -> 1
+  |(`Int a , `Int b)-> if(a > b) then (1) else (if(a<b) then -1 else 0)
+  |(`Int a, _)-> -1
+  |(_, `Int b) -> 1
+  |(`Float a, `Float b) -> if(a > b) then (1) else (if(a<b) then -1 else 0)
+  |(`Float a, _)-> -1
+  |(_, `Float b) -> 1
+  |(`String a, `String b) -> if( a > b) then (1) else (if(a<b) then -1 else 0)
+  |(`String a, _)-> -1
+  |(_, `String b) -> 1
+  |(`Bool a, `Bool b) -> if( a > b) then (1) else (if ( a < b ) then -1 else 0)
+  |(`Bool a, _)-> -1
+  |(_, `Bool b) -> 1
+  |(`List a, `List b) -> if( a > b) then (1) else (if(a<b) then -1 else 0) (*The logic with this one might not be 100% right..*)
   (* AF: The recursive tree
        *      (k1,v1)
    *         /       \
@@ -47,11 +29,9 @@ module MakeTreeDictionary (C : Comparable) = struct
    * RI: Keys must be unique. There should be no duplicate keys in the dict. *)
   type 'value tree =
     | Leaf
-    | TwoNode of (key * 'value) * 'value tree * 'value tree
-    | ThreeNode of (key * 'value) * (key * 'value) *
+    | TwoNode of (key * 'value list) * 'value tree * 'value tree
+    | ThreeNode of (key * 'value list) * (key * 'value list) *
           'value tree * 'value tree * 'value tree
-
-  type 'value t = 'value tree
 
   (* AF: treeStatus is used as a wrapper around a tree. The 'Kicked' variant
    * represents an invalid configuration in the 2-3 tree that needs to be
@@ -60,7 +40,7 @@ module MakeTreeDictionary (C : Comparable) = struct
    * valid configuration. Used in insertion into the 2-3 tree.
    * RI: None. *)
   type 'value treeStatus =
-    | Kicked of (key * 'value) * 'value tree * 'value tree
+    | Kicked of (key * 'value list) * 'value tree * 'value tree
     | Done of 'value tree
 
 
@@ -69,8 +49,8 @@ module MakeTreeDictionary (C : Comparable) = struct
    * Some (k, v) indicates that we are deleting a terminal node that
    * will replace the non-terminal node that we are deleting. *)
   type 'value hole =
-    | Hole of (key * 'value) option * 'value tree
-    | Absorbed of (key * 'value) option * 'value tree
+    | Hole of (key * 'value list) option * 'value tree
+    | Absorbed of (key * 'value list) option * 'value tree
 
   (* Documents the position of key value in either a two node or three node *)
   type direction =
@@ -185,20 +165,20 @@ module MakeTreeDictionary (C : Comparable) = struct
    *   - [d] is a valid tree
    *)
   let rec insert_down key value d = match d with
-    | Leaf -> insert_up (Kicked((key, value), Leaf, Leaf)) d
+    | Leaf -> insert_up (Kicked((key, [value]), Leaf, Leaf)) d
     | TwoNode((k,v), l, r) ->
       if key < k then
         let new_l = (insert_down key value l) in
         match new_l with
-          | Done x -> Done(TwoNode((k,v), x, r))
+          | Done x -> Done(TwoNode((k, v), x, r))
           | Kicked(_,_,_) -> insert_up new_l d
       else if key > k then
         let new_r = (insert_down key value r) in
         match new_r with
-          | Done x -> Done(TwoNode((k,v), l, x))
+          | Done x -> Done(TwoNode((k, v), l, x))
           | Kicked(_,_,_) -> insert_up new_r d
       else
-        Done(TwoNode((k,value), l, r))
+        Done(TwoNode((k, value::v), l, r))
     | ThreeNode((k1,v1), (k2,v2), l, m, r) ->
       if key < k1 then
         let new_l = (insert_down key value l) in
@@ -216,9 +196,9 @@ module MakeTreeDictionary (C : Comparable) = struct
           | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, m, x))
           | Kicked(_,_,_) -> insert_up new_r d
       else if key = k1 then
-        Done(ThreeNode((k1,value), (k2,v2), l, m, r))
+        Done(ThreeNode((k1,value::v1), (k2,v2), l, m, r))
       else
-        Done(ThreeNode((k1,v1), (k2,value), l, m, r))
+        Done(ThreeNode((k1,v1), (k2,value::v2), l, m, r))
 
   let insert key value d =
     match insert_down key value d with
@@ -266,6 +246,28 @@ module MakeTreeDictionary (C : Comparable) = struct
             find key m
           else
             find key r
+
+    let rec findDocs  d acc highval lowval =
+    match d with
+      | Leaf -> acc
+      | TwoNode ((k, v), l, r) ->
+        if (k <= highval && k>=lowval) then
+          v :: (findDocs  l acc highval lowval)@(findDocs  r acc highval lowval)
+        else
+          if k > highval then
+            findDocs  l acc highval lowval
+          else
+            findDocs r acc highval lowval
+      | ThreeNode ((k1, v1), (k2, v2), l, m, r) ->
+        if ((k1 <highval && k1> blowval) then
+          (if((k2 <= highval && k2>=lowval)) then (v2::v1 :: (findDocs  l acc highval lowval)@(findDocs  r acc highval lowval)@(findDocs m acc highval lowval))
+           else
+                  v1::(findDocs l acc highval lowval)@(findDOcs m acc highval lowval))
+        else
+          if k1 > highVal then
+                findDocs l acc highval lowval
+          else
+                findDocs
 
   (* [remove_up node parent direction]
    * Pushes the given node into the parent, returning either
@@ -372,6 +374,13 @@ module MakeTreeDictionary (C : Comparable) = struct
         let
         '' *)
 
+  let rec traverse highkey lowkey
+
+
+
+
+
+
   let remove key d = d
 
   let choose d = match d with
@@ -395,105 +404,5 @@ module MakeTreeDictionary (C : Comparable) = struct
 
   let format format_val fmt d =
     Format.fprintf fmt "<abstr>" (* TODO: improve if you wish *)
-end
-
-module type Set =
-  sig
-    module Elt : Comparable
-    type elt = Elt.t
-    type t
-    val rep_ok : t  -> t
-    val empty : t
-    val is_empty : t -> bool
-    val size : t -> int
-    val insert : elt -> t -> t
-    val member : elt -> t -> bool
-    val remove : elt -> t -> t
-    val union : t -> t -> t
-    val intersect : t -> t -> t
-    val difference : t -> t -> t
-    val choose : t -> elt option
-    val fold : (elt -> 'acc -> 'acc) -> 'acc -> t -> 'acc
-    val to_list : t -> elt list
-    val format : Format.formatter -> t -> unit
-  end
-
-module type SetMaker =
-  functor (C : Comparable) -> Set with type Elt.t = C.t
-
-(* HINT:  To build a set out of a dictionary, consider this:
-   a dictionary is much like a **set** of (key,value) pairs. *)
-module MakeSetOfDictionary (D:Dictionary) = struct
-  module Elt = D.Key
-  type elt = Elt.t
-
-  (* AF: dict (k1, v1)..(kn, vn) represents a set k1..kn.
-   * Note that k and v have the same type, and thus v can
-   * essentially be ignored.
-   * An empty dictionary represents an empty set.
-   * RI: Keys must be unique, because there are no duplicates in the set *)
-  type t = elt D.t
-
-  let rep_ok s = s
-  (*     let no_dups s = D.to_list s
-      |> List.map (fun el -> D.remove (fst el) s |> D.find (fst el))
-      |> List.for_all (fun el -> el = None)
-    in
-    if (no_dups s) then s else failwith "RI" *)
-
-  let empty = D.empty
-
-  let is_empty s = ((rep_ok s) = D.empty)
-
-  let size s = rep_ok s |> D.size
-
-  let insert x s =
-    if rep_ok s |> D.member x then s
-    else D.insert x x s
-
-  let member x s = rep_ok s |> D.member x
-
-  let remove x s = D.remove x s
-
-  let choose s = match (rep_ok s |> D.choose) with
-    | Some x -> Some (fst x)
-    | None -> None
-
-  let rec fold f init s =
-    let wrapper k v acc = f k acc in
-    D.fold wrapper init s
-
-  let to_list s = rep_ok s |> D.to_list |> List.map (fun el -> fst el)
-
-  let union s1 s2 =
-    let rec helper l acc = match l with
-      | [] -> acc
-      | h::t -> if member h acc then helper t acc else helper t (insert h acc)
-    in
-    let list1 = to_list s1 in
-    let list2 = to_list s2 in
-    D.empty |> helper list1 |> helper list2
-
-  let intersect s1 s2 =
-    let rec helper l1 l2 acc = match l1 with
-      | [] -> acc
-      | h::t -> if member h l2 then helper t l2 (insert h acc)
-                else helper t l2 acc
-    in
-    let s1_list = to_list s1 in
-    helper s1_list s2 D.empty
-
-  let difference s1 s2 =
-    let rec helper l1 l2 acc = match l1 with
-      | [] -> acc
-      | h::t -> if member h l2 then helper t l2 acc
-        else helper t l2 (insert h acc)
-    in
-    let s1_list = to_list s1 in
-    helper s1_list s2 D.empty
-
-  let format fmt d =
-    Format.fprintf fmt "<abstr>" (* TODO: improve if you wish *)
-end
 
 
