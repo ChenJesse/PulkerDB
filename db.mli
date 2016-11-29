@@ -1,7 +1,7 @@
 open Yojson.Basic
 open Persist
 
-type response = 
+type response =
   | CreateDBResponse of bool * string
   | CreateColResponse of bool * string
   | CreateDocResponse of bool * string
@@ -17,10 +17,6 @@ type response =
   | ShowCatalogResponse of bool * string
 
 val environment : catalog
-
-val get_db_ref: string -> db
-
-val get_col_ref: string -> db -> col
 
 (**
  * Given a doc, creates a doc in the environment.
