@@ -72,6 +72,7 @@ val drop_db : string -> response
  *)
 val drop_col : string -> string -> response
 
+val create_index: string -> string -> string -> Yojson.Basic.json -> response
 (**
  * Given strings representing names of db and col, prints the contents of the col.
  * On failure, return false. On success, return true.

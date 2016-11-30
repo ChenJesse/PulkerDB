@@ -481,7 +481,7 @@ let key_set tbl =
 * Given the database, collection, desired index_name and querydoc, creates a index
 *
 *)
-let createIndex db col_name index_name querydoc=
+let create_index db col_name index_name querydoc=
     let col = (db |> get_db |> get_col col_name) in
     let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
     let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
@@ -517,7 +517,8 @@ let createIndex db col_name index_name querydoc=
     let id_list = t::((snd) col) in
     let new_col = ((fst)col, id_list) in
     let old_db = db |> get_db in
-    Hashtbl.replace ((fst)old_db) col_name new_col
+    Hashtbl.replace ((fst)old_db) col_name new_col;
+    CreateIndexResponse(true, "Index was successfully made!")
       (* remove this print later. *)
 
 

@@ -124,6 +124,12 @@ let parse input =
           let pair = tuplize_parameters d in
           update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
         | _ -> raise ParseError
+        | "createIndex" -> let e = parse_json d in
+                           match e with
+                           |`Assoc lst -> match lst with
+                            |((f:string) , (g:Yojson.Basic.json))::tl->
+                            let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
+                            create_index a b c query_doc
       )
     | _ -> failwith "Improper tuple"
   ) with
