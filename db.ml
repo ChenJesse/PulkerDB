@@ -483,42 +483,48 @@ let key_set tbl =
 *)
 let create_index db col_name index_name querydoc=
     let col = (db |> get_db |> get_col col_name) in
-    let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
-    let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
-    let ctr = ref(0) in
-    let len = List.length query_result in
-    while(!ctr < len)
-    do (
-       let current_doc = List.nth (query_result) (!ctr) in
-       let t = Util.member index_name current_doc in(*Load them all into the hashtable *)
-       Hashtbl.add table t current_doc;
-       ctr:= !ctr+1;
-       ) done;
-    let keys_tb =  (key_set table) in
-    key_sort (keys_tb);
-    let ctr2 = ref(0) in
-    let len = Array.length keys_tb in
-    let tree = ref(Tree.empty) in
-    while(!ctr2 < len)
-    do (
-        let ctr3 = ref(0) in
-        let tbl_list = Hashtbl.find_all table (Array.get keys_tb !ctr2)  in
-        while (!ctr3 < List.length tbl_list)
-        do (
+    let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in
+    if(List.length query_result = 0)
+      then (
+          CreateIndexResponse(false, "no docs matched the desired field")
+            )
+    else ( (*(doublecheck if this is right) Get all the tuples with the attribute *)
+      let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
+      let ctr = ref(0) in
+      let len = List.length query_result in
+      while(!ctr < len)
+      do (
+        let current_doc = List.nth (query_result) (!ctr) in
+        let t = Util.member index_name current_doc in(*Load them all into the hashtable *)
+        Hashtbl.add table t current_doc;
+        ctr:= !ctr+1;
+        ) done;
+      let keys_tb =  (key_set table) in
+      key_sort (keys_tb);
+      let ctr2 = ref(0) in
+      let len = Array.length keys_tb in
+      let tree = ref(Tree.empty) in
+      while(!ctr2 < len)
+      do (
+          let ctr3 = ref(0) in
+          let tbl_list = Hashtbl.find_all table (Array.get keys_tb !ctr2)  in
+          while (!ctr3 < List.length tbl_list)
+          do (
 
-              tree:=(Tree.insert (Array.get keys_tb !ctr2)  ([List.nth tbl_list !ctr3] ) !tree);
-              ctr3 := !ctr3+1
+                tree:=(Tree.insert (Array.get keys_tb !ctr2)  ([List.nth tbl_list !ctr3] ) !tree);
+                ctr3 := !ctr3+1
 
-           ) done;
-        ctr2:= !ctr2+1
-      ) done;
+            ) done;
+          ctr2:= !ctr2+1
+        ) done;
 
-    let t = {id_name=index_name; id_table = table; keys = tree} in
-    let id_list = t::((snd) col) in
-    let new_col = ((fst)col, id_list) in
-    let old_db = db |> get_db in
-    Hashtbl.replace ((fst)old_db) col_name new_col;
-    CreateIndexResponse(true, "Index was successfully made!")
+      let t = {id_name=index_name; id_table = table; keys = tree} in
+      let id_list = t::((snd) col) in
+      let new_col = ((fst)col, id_list) in
+      let old_db = db |> get_db in
+      Hashtbl.replace ((fst)old_db) col_name new_col;
+      CreateIndexResponse(true, "Index was successfully made!")
+    )
       (* remove this print later. *)
 
 

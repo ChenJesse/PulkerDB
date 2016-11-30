@@ -13,6 +13,7 @@ db.createCollection(name)
 db.COLLECTION_NAME.drop()
 db.COLLECTION_NAME.insert(document)
 db.COLLECTION_NAME.find()
+db.COLLECTION_NAME.createIndex({"field" : 1})
 db.COLLECTION_NAME.update(SELECTION_CRITERIA, UPDATED_DATA)
 db.COLLECTION_NAME.remove(DELLETION_CRITERIA)
 *)
@@ -33,6 +34,8 @@ let interpreter_tests = [
     (tuplize_input "db.COLLECTION_NAME.replace({asdf}|{fdas})"));
   "update" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "update", "{asdf}|{fdas}"))
     (tuplize_input "db.COLLECTION_NAME.update({asdf}|{fdas})"));
+    "index" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "createIndex", "{a:1}"))
+    (tuplize_input "db.COLLECTION_NAME.createIndex({a:1})"));
 ]
 
 let db_tests = [
@@ -140,6 +143,13 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.drop()"; parse "test.createCollection(c)"));
   "test9" >:: (fun _ -> assert_equal (CreateDocResponse(true, "Success!"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.insert({a: 1, b: 2})"));
+  "test9I" >:: (fun _ -> assert_equal (CreateIndexResponse(true, "Index was successfully made!"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.insert({a: 1, b: 2})";
+     parse "test.c.createIndex({a:1})"));
+  "test9IB" >:: (fun _ -> assert_equal (CreateIndexResponse(false, "no docs matched the desired field"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.insert({a: 1, b: 2})";
+     parse "test.c.createIndex({c:1})"));
+
   "test10" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)"; parse "test.c.insert({a: 1, b: 2})"; parse "test.c.show()"));
   "test11" >:: (fun _ -> assert_equal (CreateDocResponse(true, "Success!"))
