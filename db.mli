@@ -1,5 +1,6 @@
 open Yojson.Basic
 open Persist
+open Tree
 
 type response =
   | CreateDBResponse of bool * string
@@ -16,6 +17,8 @@ type response =
   | ShowDBResponse of bool * string
   | ShowCatalogResponse of bool * string
   | AggregateResponse of bool * string
+  | CreateIndexResponse of bool * string
+
 
 val environment : catalog
 
