@@ -16,6 +16,7 @@ let help_msg = "
 | -query_doc : Information on format for QUERY_DOC            |
 | -update_doc : Information on format for UPDATE_DOC          |
 | -agg_doc : Information on format for for AGG_DOC            |
+| -index_doc : Information on format for for AGG_DOC          |
 ---------------------------------------------------------------
 
                       DATABASE COMMANDS
@@ -30,7 +31,9 @@ let help_msg = "
 | db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)             |
 | db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC)           |
 | db.COLLECTION_NAME.remove(QUERY_DOC)                        |
-| db.COLLECTION_NAME.aggregate(AGG_DOC)
+| db.COLLECTION_NAME.aggregate(AGG_DOC)                       |
+| db.COLLECTION_NAME.createIndex(INDEX_DOC)
+
 --------------------------------------------------------------- \n"
 
 let rec loop input =
@@ -71,16 +74,16 @@ else if input = "-agg_doc" then ANSITerminal.(print_string [green] "aggdoc")
     | ShowColResponse (x, output) ->
       if x then print_output output
       else print_error "Col does not exist."
-    | ShowDBResponse (x, output) -> 
+    | ShowDBResponse (x, output) ->
       if x then print_output output
       else print_error "DB does not exist."
-    | ShowCatalogResponse (x, output) -> 
+    | ShowCatalogResponse (x, output) ->
       if x then print_output output
       else print_error "Something went wrong with the environment."
     | UpdateColResponse (x, msg) ->
       if x then print_output "Successfully updated collection!"
       else print_error msg
-    | AggregateResponse (x, output) -> 
+    | AggregateResponse (x, output) ->
       if x then print_output output
     else print_error "Aggregation failed."
     | ParseErrorResponse(x, output) ->
