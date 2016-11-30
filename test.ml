@@ -79,7 +79,7 @@ let empty_db2 : Persist.db = ((Hashtbl.create 5), true)
 let empty_db3 : Persist.db = ((Hashtbl.create 5), true)
 
 let test_doc = `Assoc( [("key", `String("value"))] )
-let test_col : Persist.col = test_doc::[]
+let test_col : Persist.col = (test_doc::[],[])
 let test_db : Persist.db = ((Hashtbl.create 5), true)
 let () = Hashtbl.add (fst test_db) "test_col" test_col
 let test_env = Hashtbl.create 5
@@ -89,7 +89,7 @@ let test_db2 : Persist.db = ((Hashtbl.create 5), true)
 let test_env2 = Hashtbl.create 5
 let () = Hashtbl.add test_env2 "test_db2" test_db2
 
-let test_col3 : Persist.col = []
+let test_col3 : Persist.col = ([],[])
 let test_db3 = ((Hashtbl.create 5), true)
 let () = Hashtbl.add (fst test_db3) "test_col3" test_col3
 let test_env3 = Hashtbl.create 5
@@ -100,7 +100,7 @@ let persist_tests = [
     Persist.write_env test_env;
     assert (Sys.is_directory "test_db");
     Persist.read_db "test_db" empty_db;
-    assert_equal (Hashtbl.find (fst empty_db) "test_col") [`Assoc([("key", `String("value"))])];
+    assert_equal (Hashtbl.find (fst empty_db) "test_col") ([`Assoc([("key", `String("value"))])], []);
     Sys.remove "test_db/test_col.json";
     Unix.rmdir "test_db";
   );
@@ -115,7 +115,7 @@ let persist_tests = [
     Persist.write_env (test_env3);
     assert (Sys.is_directory "test_db3");
     Persist.read_db "test_db3" empty_db3;
-    assert_equal (Hashtbl.find (fst empty_db3) "test_col3") [];
+    assert_equal (Hashtbl.find (fst empty_db3) "test_col3") ([],[]);
     Sys.remove "test_db3/test_col3.json";
     Unix.rmdir "test_db3"
   )

@@ -8,13 +8,22 @@
  *             | `Null
  *             | `String of string ]
  *)
-type doc = Yojson.Basic.json
+ open Tree
 
-type col = doc list
+ type doc = Yojson.Basic.json
+
+
+type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json list Tree.tree ref}
+
+type indexList = indexFile list
+
+type col = doc list * indexList
 
 type db = (string, col) Hashtbl.t * bool
 
 type catalog = (string, db) Hashtbl.t
+
+
 
 exception NotInDisc
 
@@ -64,7 +73,7 @@ let write_db db_name db =
   let (col_hashtbl, dirty) = db in
   Unix.mkdir db_name 0o777;
   let helper col_name col =
-    write_collection db_name col_name col
+    write_collection db_name col_name ((fst)col)
   in
   Hashtbl.iter helper col_hashtbl
 
@@ -96,7 +105,7 @@ let read_collection db_name col_name =
   let path = db_name ^ "/" ^ col_name ^ ".json" in
   let doc_list = path |> Yojson.Basic.from_file
     |> Yojson.Basic.Util.member "entries"  |> get_docs in
-  doc_list
+  (doc_list, [])
 
 let read_db db_name db =
   let (col_hashtbl, dirty) = db in

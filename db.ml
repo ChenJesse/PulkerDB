@@ -1,6 +1,6 @@
 open Yojson.Basic
 open Persist
-
+open Tree
 (**
  * Taken from Yojson.Basic documentation:
  * type json = [ `Assoc of (string * json) list
@@ -27,6 +27,8 @@ type response =
   | ShowDBResponse of bool * string
   | ShowCatalogResponse of bool * string
   | AggregateResponse of bool * string
+  | CreateIndexResponse of bool * string
+
 
 exception DropException
 exception LocateDBException
@@ -42,7 +44,7 @@ let col_find_error col_name = col_name ^ " was not found."
 type converter = ToInt of (doc -> int) | ToString of (doc -> string)
   | ToBool of (doc -> bool) | ToFloat of (doc -> float)
 
-type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq
+type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq | Exists
 
 let environment : catalog = Hashtbl.create 20
 
@@ -79,7 +81,10 @@ let trpl_fst t = match t with
 
 let trpl_snd t = match t with
   | (_, b, _) -> b
-
+(**
+* Function for sorting keys of my index in increasing order
+*)
+let keysort arr = Array.sort compareJSON arr
 (* -------------------------------CREATION------------------------------- *)
 (**
  * Given a string representing name of db, creates a db in the environment.
@@ -99,6 +104,54 @@ let create_db db_name =
         CreateDBResponse(true, "Success!")
       | _ -> CreateDBResponse(false, unexpected_error)
 
+ (**
+  * Adds ogDoc to a index if one is found. Otherwise return nothing
+  *)
+ let rec indexChanger ogDoc doc col =
+    match doc with
+   |[] -> ()
+   |(k,v)::tl-> let loopCondition = true in
+                    let ctr = ref(0) in
+                    let idList = (snd) col in
+                      while(!ctr < (List.length idList) && loopCondition = true) do
+                      (
+                        let curIndex = List.nth idList !ctr in
+                        if((curIndex.idName) = k) then
+                        (
+                          print_endline "found a match and changing it";
+                          let tree = curIndex.keys in
+                          print_endline (string_of_int (Tree.size !tree));
+                          tree:= (Tree.insert (v) ([ogDoc]) (!tree) );
+                          print_endline (string_of_int (Tree.size !tree));
+                          loopCondition = false;
+                          ctr:=!ctr+1;
+                          ()
+                       )
+                        else (
+                            ctr:= !ctr+1
+                        )
+                      ) done; indexChanger ogDoc tl col
+
+(**
+* Given the doc, update the index if that doc's attribute matches a declared index field.
+*)
+  let rec indexUpdater (ogDoc) (doc) col =
+  match doc with
+  |`Assoc a->( match a with |((b:string),(c:Tree.key))::tl -> indexChanger ogDoc a col)
+  |_ -> ()
+
+
+
+
+(**
+* Returns the tree associated with the specified index in the index desired. Returns empty if no index can be found.
+*)
+
+ let rec getIndex index_name index =
+ match index with
+ |[]->Tree.empty
+ |{ idName = a; idTable =_; keys= c}::tl->  if(a = index_name) then(  !c )else getIndex index_name tl
+
 (**
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.
@@ -107,8 +160,11 @@ let create_doc db_name col_name doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-    let new_col = doc::col in
-    Hashtbl.replace (fst db) col_name new_col;
+     let colList = (fst)col in
+    let new_col = doc::colList in
+    indexUpdater doc doc col;
+    let new_colIndex = (new_col, (snd) col) in
+    Hashtbl.replace (fst db) col_name new_colIndex;
     set_dirty (db_name);
     CreateDocResponse(true, "Success!")
   ) with
@@ -125,8 +181,8 @@ let create_col db_name col_name =
     let db = get_db db_name in
     match (Hashtbl.mem (fst db) col_name) with
     | true -> CreateColResponse(false, (col_name ^ " already exists."))
-    | false -> 
-        Hashtbl.add (fst db) col_name [];
+    | false ->
+        Hashtbl.add (fst db) col_name ([],[]);
         CreateColResponse(true, "Success!")
   ) with
   | LocateDBException -> ShowColResponse(false, db_find_error db_name)
@@ -182,6 +238,104 @@ let compare_string op (doc1 : doc) (doc2 : doc) converter =
   | ToString x -> (unwrap_op op) (x doc1) (x doc2)
   | _ -> failwith "Incorrect converter"
 
+(** query_doc is guaranteed to have the field this index tree is built on.
+ * collectionTree is the index for the attribute specified.
+ *This needs to parse the query and figure out what type of query it is.
+ *Depending on what type of query it is, it will then call traverse with certain bounds on the tree *)
+let indexQueryBuilder collectionTree query_doc = (
+   let rec helper collectionTree query_doc =
+   match query_doc with
+  |h::t -> let comparator = match (fst h) with
+    | "$lt" -> Some Less
+    | "$lte" -> Some LessEq
+    | "$gt" -> Some Greater
+    | "$gte" -> Some GreaterEq
+    | "$ne" -> Some NotEq
+    | _ -> None
+  in
+  match comparator with
+  |Some Less -> let doc2 = snd h in (findDocs collectionTree doc2 `Null)
+  |Some Greater -> let doc2 = snd h in (findDocs collectionTree (`List[`Int 99999999999999 ]) doc2)
+  |Some LessEq -> (let doc2  = snd h in
+                  let realDoc2 = (match doc2 with
+                                |`Null -> `Null
+                                |`Int a -> let b = (a+1) in (`Int b)
+                                |`Float a -> let b = a +.1.0 in (`Float b)
+                                |`String a -> (let d = String.get a ((String.length a)-1) in
+                                              let code = (Char.code d)+1 in
+                                              let charNew = Char.chr code in
+                                              let newString =
+                                              String.concat "" [(String.sub a 0 ((String.length a)-1)); (String.make 1 charNew)] in
+                                              `String newString)
+                                |`Bool a ->  `Bool a
+
+                              )
+                              in
+                    findDocs collectionTree realDoc2 `Null)
+  |Some GreaterEq -> (let doc2  = snd h in
+                  let realDoc2 = (match doc2 with
+                                |`Null -> `Null
+                                |`Int a -> let b = (a-1) in (`Int b)
+                                |`Float a -> let b = a -.1.0 in (`Float b)
+                                |`String a -> (let d = String.get a ((String.length a)-1) in
+                                              let code = (Char.code d)-1 in
+                                              let charNew = Char.chr code in
+                                              let newString =
+                                              String.concat "" [(String.sub a 0 ((String.length a)-1)); (String.make 1 charNew)] in
+                                              `String newString)
+                                |`Bool a ->  `Bool a
+
+                              )
+                              in
+                    findDocs collectionTree (`List[`Int 99999999999999 ]) realDoc2)
+  |Some NotEq->  let doc2 = snd h in let firstDocList =(findDocs collectionTree doc2 `Null) in
+                 let secDocList =  (findDocs collectionTree (`List[`Int 99999999999999 ]) doc2) in
+                 firstDocList@secDocList
+
+  | None -> ( match (nested_json (snd h)) with
+      | true -> ((* We have a doc as the value, need to recurse *)
+        (* Represents the nested doc in the query_doc *)
+        let nested = match (snd h) with
+          | `Assoc lst -> lst
+          | _ -> failwith "Can't be here" in
+        (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
+        if (comparator_json (snd h)) then (helper collectionTree nested) else [])
+            (*WE have an equality check *)
+      | false -> (let doc2 = (snd) h in
+                let realDoc2low= (match doc2 with
+                                |`Null -> `Null
+                                |`Int a -> let b = (a-1) in (`Int b)
+                                |`Float a -> let b = a -.1.0 in (`Float b)
+                                |`String a -> (let d = String.get a ((String.length a)-1) in
+                                              let code = (Char.code d)-1 in
+                                              let charNew = Char.chr code in
+                                              let newString =
+                                              String.concat "" [(String.sub a 0 ((String.length a)-1)); (String.make 1 charNew)] in
+                                              `String newString)
+                                |`Bool a ->  `Bool a
+
+                              ) in
+                let realDoc2high = (match doc2 with
+                                |`Null -> `Null
+                                |`Int a -> let b = (a+1) in (`Int b)
+                                |`Float a -> let b = a +.1.0 in (`Float b)
+                                |`String a -> (let d = String.get a ((String.length a)-1) in
+                                              let code = (Char.code d)+1 in
+                                              let charNew = Char.chr code in
+                                              let newString =
+                                              String.concat "" [(String.sub a 0 ((String.length a)-1)); (String.make 1 charNew)] in
+                                              `String newString)
+                                |`Bool a ->  `Bool a
+
+                              ) in
+                findDocs collectionTree realDoc2high realDoc2low ) )
+
+   in
+  match query_doc with
+  | `Assoc lst -> helper collectionTree lst
+  | _ -> failwith "Invalid query JSON"
+)
+
 let check_doc doc query_doc =
   let rec helper doc query_doc p_key acc = match acc, query_doc with
   | (false, _) -> false
@@ -193,9 +347,12 @@ let check_doc doc query_doc =
       | "$gt" -> Some Greater
       | "$gte" -> Some GreaterEq
       | "$ne" -> Some NotEq
+      | "$exists" -> Some Exists
       | _ -> None
     in
     match comparator with
+    |Some Exists -> print_endline "came into this"; let doc1= Util.member p_key doc in let doc2 = (snd) h in
+    if((doc1 <> `Null && doc2 =`Bool true) || (doc1 = `Null && doc2 = `Bool false)) then true else false
     | Some c ->
       let doc1 = Util.member p_key doc in
       let doc2 = snd h in
@@ -236,6 +393,42 @@ let check_doc doc query_doc =
   | _ -> raise InvalidQueryDocException
 
 (**
+ * Converts the doc list returned by index checker into a normal list of docs rather than a nested list.
+ *)
+ let demistify lst =
+   let finalResult = ref([]) in
+   let ctr = ref(0) in
+   while (!ctr < List.length lst) do (finalResult:= (List.nth (List.nth lst !ctr) 0)::!finalResult; ctr:=!ctr+1) done;
+   !finalResult
+
+ (**
+  * Checks if there are any indices that match the current queries field.
+  * IF there are, we want to get teh docs associated with this query from the index
+  * And return those after converting to a normal doc list.
+   Otherwise, continue and ultimately just return whatever the collection's list of docs are if no index can be matched
+ *)
+ let indexChecker (col:Persist.col) queryList =
+    let ctr = ref(0) in
+    let indexList = (snd) col in
+    let docs = ref([]) in
+    let breakCondition = ref(false) in
+    while(!breakCondition = false & !ctr < List.length queryList)
+    do (
+         let index = (getIndex ((fst) (List.nth queryList !ctr)) indexList) in
+      if(index<>Tree.empty)
+      then (
+           docs := demistify (indexQueryBuilder index (`Assoc [List.nth queryList !ctr])); (* NEed to fix logic here after checkign why its doc list list list (two extra lists..)*)
+          breakCondition := true
+         )
+       else (
+            ctr:=!ctr+1
+       )
+
+    ) done;
+    (if(!docs = []) then  (docs:= ((fst) col); !docs) else ( !docs)) (*need to fix logic here as well *)
+
+
+(**
  * Given a string representing a query JSON, looks for matching docs in
  * the environment.
  * On failure, return false. On success, return true.
@@ -243,7 +436,9 @@ let check_doc doc query_doc =
 let query_col db_name col_name query_doc =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
-    let query_result = List.filter (fun d -> check_doc d query_doc) col in
+    let lstQueries = (match query_doc with |`Assoc lst -> lst |_ -> [] ) in
+    let documents = indexChecker col lstQueries in
+    let query_result = List.filter (fun d -> check_doc d query_doc) documents in
     let query_string = `List(query_result) |> pretty_to_string in
     QueryResponse(true, query_string)
   ) with
@@ -253,13 +448,78 @@ let query_col db_name col_name query_doc =
   | _ -> QueryResponse(false, unexpected_error)
 
 (**
+ * Extract all the keys associated with this List, removing duplicates as we go.
+ *)
+let rec extractKeys listTbl keyList =
+  match listTbl with
+  |[]-> keyList
+  |(k,v)::tl -> if(List.mem k keyList) then extractKeys tl keyList else extractKeys tl (k::keyList)
+
+(**
+* Return the keySet for my hashtable, tbl. That is, a set with only unique keys.
+*)
+let keySet tbl =
+  let listTbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
+  let finalList = extractKeys listTbl [] in
+  let arrNew = Array.make (List.length finalList) `Null in
+  let ctr = ref(0) in
+  while(!ctr<List.length finalList)
+  do (Array.set arrNew !ctr (List.nth finalList !ctr);
+ctr:= !ctr +1) done;
+  arrNew
+
+(**
+* Given the database, collection, desired index_name and querydoc, creates a index
+*
+*)
+let createIndex db col_name index_name querydoc=
+let col = (db |> get_db |> get_col col_name) in
+    let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
+     let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
+    let ctr = ref(0) in
+    let len = List.length query_result in
+    while(!ctr < len)
+    do (
+    let currentDoc = List.nth (query_result) (!ctr) in
+    let t = Util.member index_name currentDoc in(*Load them all into the hashtable *)
+    Hashtbl.add table t currentDoc;
+    ctr:= !ctr+1;
+  ) done;
+    let keysTb =  (keySet table) in
+    keysort (keysTb);
+    let ctr2 = ref(0) in
+    let len = Array.length keysTb in
+    let tree = ref(Tree.empty) in
+    while(!ctr2 < len)
+    do (
+      let ctr3 = ref(0) in
+      let tblList = Hashtbl.find_all table (Array.get keysTb !ctr2)  in
+       while (!ctr3 < List.length tblList)
+       do
+       (
+           tree:=(Tree.insert (Array.get keysTb !ctr2)  ([List.nth tblList !ctr3] ) !tree);
+           ctr3 := !ctr3+1
+
+       )done;
+       ctr2:= !ctr2+1
+    ) done;
+
+   let t = {idName=index_name; idTable = table; keys = tree} in
+    let idList = t::((snd) col) in
+    let new_col = ((fst)col, idList) in
+    let olddb = db |> get_db in
+    Hashtbl.replace ((fst)olddb) col_name new_col;
+    tree (* remove this print later. *)
+
+
+(**
  * Given a string representing name of col, shows a col in the environment.
  * On failure, return false. On success, return true.
  *)
 let show_col db_name col_name =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
-    let contents = `List(col) |> pretty_to_string in
+    let contents = `List((fst)col) |> pretty_to_string in
     ShowColResponse(true, contents)
   ) with
   | LocateDBException -> ShowColResponse(false, db_find_error db_name)
@@ -286,71 +546,71 @@ let show_catalog () =
 
 (* -------------------------------AGGREGATION--------------------------------- *)
 
-let bucketize db_name col_name attr = 
+let bucketize db_name col_name attr =
   let col = (db_name |> get_db |> get_col col_name) in
-  let buckets = Hashtbl.create 20 in 
-  List.iter (fun doc -> 
-    let value = Util.member attr doc in 
-    if Hashtbl.mem buckets value then 
-      let bucket = Hashtbl.find buckets value in 
+  let buckets = Hashtbl.create 20 in
+  List.iter (fun doc ->
+    let value = Util.member attr doc in
+    if Hashtbl.mem buckets value then
+      let bucket = Hashtbl.find buckets value in
       Hashtbl.replace buckets value (doc::bucket)
-    else 
+    else
       Hashtbl.add buckets value [doc]
-  ) col;
+  ) ((fst)col);
   buckets
 
-let aggregator_attr bucket op t_field = 
-  match op with 
-  | "$sum" -> `Int (List.fold_left (fun acc doc -> let v = Util.(member t_field doc |> to_int) in 
+let aggregator_attr bucket op t_field =
+  match op with
+  | "$sum" -> `Int (List.fold_left (fun acc doc -> let v = Util.(member t_field doc |> to_int) in
                               acc + v) 0 bucket)
-  | "$max" -> `Int (List.fold_left (fun max doc -> let v = Util.(member t_field doc |> to_int) in 
+  | "$max" -> `Int (List.fold_left (fun max doc -> let v = Util.(member t_field doc |> to_int) in
                               if v > max then v else max) min_int bucket)
-  | "$min" -> `Int (List.fold_left (fun min doc -> let v = Util.(member t_field doc |> to_int) in 
+  | "$min" -> `Int (List.fold_left (fun min doc -> let v = Util.(member t_field doc |> to_int) in
                               if v < min then v else min) max_int bucket)
   | _ -> failwith "Aggregator failed"
 
 (**
  * For summing up with constants for a count of buckets
  *)
-let aggregator_const bucket op t_field = 
-  match op with 
+let aggregator_const bucket op t_field =
+  match op with
   | "$sum" -> `Int (List.fold_left (fun acc doc -> acc + t_field) 0 bucket)
   | _ -> failwith "Aggregator failed"
 
-let aggregation_helper acc agg_lst buckets = 
-  Hashtbl.iter (fun key bucket -> 
+let aggregation_helper acc agg_lst buckets =
+  Hashtbl.iter (fun key bucket ->
     let result_doc = `Assoc (
       ("_id", key)::
-      List.map (fun (field_name, field) -> 
-        match field with 
+      List.map (fun (field_name, field) ->
+        match field with
         | `Assoc lst -> (
-            let (op, t_field) = List.hd lst in 
+            let (op, t_field) = List.hd lst in
             try (
               (field_name, aggregator_attr bucket op (t_field |> Util.to_string))
-            ) with 
+            ) with
             | _ -> (field_name, aggregator_const bucket op (t_field |> Util.to_int))
           )
         | _ -> raise InvalidAggDocException
       ) agg_lst
-    ) in 
+    ) in
     acc := result_doc::(!acc)
   ) buckets
 
 (*db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})*)
-let aggregate db_name col_name agg_doc = 
+let aggregate db_name col_name agg_doc =
   try (
-    let bucket_attr = Util.(member "_id" agg_doc |> to_string) in 
-    let buckets = bucketize db_name col_name bucket_attr in 
+    let bucket_attr = Util.(member "_id" agg_doc |> to_string) in
+    let buckets = bucketize db_name col_name bucket_attr in
     (* Each iteration of the helper will go through a bucket and create the aggregated json *)
     match agg_doc with
-    | `Assoc lst -> 
-      let acc = ref [] in 
-      let filtered = List.filter (fun pair -> (fst pair) <> "_id") lst in 
-      aggregation_helper acc filtered buckets; 
-      let agg_string = `List(!acc) |> pretty_to_string in 
+    | `Assoc lst ->
+      let acc = ref [] in
+      let filtered = List.filter (fun pair -> (fst pair) <> "_id") lst in
+      aggregation_helper acc filtered buckets;
+      let agg_string = `List(!acc) |> pretty_to_string in
       AggregateResponse(true, agg_string)
     | _ -> AggregateResponse(false, "Error with aggregating response. Refer to -agg_doc for more information.")
-  ) with 
+  ) with
   | LocateDBException -> AggregateResponse(false, db_find_error db_name)
   | LocateColException -> AggregateResponse(false, col_find_error col_name)
   | _ -> AggregateResponse(false, "Error with aggregating response. Refer to -agg_doc for more information.")
@@ -402,8 +662,8 @@ let remove_doc db_name col_name query_doc =
   try (
     let db = db_name |> get_db in
     let col = get_col col_name db in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) col in
-    Hashtbl.replace (fst db) col_name new_col;
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     set_dirty db_name;
     RemoveDocResponse(true, "Success!")
   ) with
@@ -421,9 +681,9 @@ let remove_and_get_doc db_name col_name query_doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-    let query = List.filter (fun d -> check_doc d query_doc) col in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) col in (* Keep docs that don't satisfy query_doc *)
-    Hashtbl.replace (fst db) col_name new_col;
+    let query = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in (* Keep docs that don't satisfy query_doc *)
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     query
   ) with
   | _ -> []
@@ -465,8 +725,8 @@ let replace_col db_name col_name query_doc update_doc =
     let db = get_db db_name in
     let _ = remove_doc db_name col_name query_doc in
     let col = get_col col_name db in
-    let new_col = update_doc::col in
-    Hashtbl.replace (fst db) col_name new_col;
+    let new_col = update_doc::((fst)col) in
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     set_dirty db_name;
     ReplaceDocResponse(true, "Success!")
   ) with
@@ -487,13 +747,13 @@ let update_col db_name col_name query_doc update_doc =
       | _ -> raise InvalidUpdateDocException in
     let query = remove_and_get_doc db_name col_name query_doc in
     let col = get_col col_name db in
-    let new_col = col@(List.map (fun json -> (modify_doc json u_doc)) query) in
-    Hashtbl.replace (fst db) col_name new_col;
+    let new_col = ((fst)col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
+    Hashtbl.replace (fst db) col_name (new_col,[]);
     UpdateColResponse(true, "Success!")
   ) with
   | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
   | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
-  | _ -> UpdateColResponse(false, "Error with updating collection. 
+  | _ -> UpdateColResponse(false, "Error with updating collection.
     Refer to -query_doc and -update_doc for more information.")
 
 let clear_env () = Hashtbl.reset environment
