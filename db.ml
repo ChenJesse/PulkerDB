@@ -115,7 +115,7 @@ let rec index_changer ogDoc doc col = match doc with
             print_endline "found a match and changing it";
             let tree = cur_index.keys in
             print_endline (string_of_int (Tree.size !tree));
-            tree := Tree.insert v [ogDoc] (!tree) ;
+            tree := Tree.insert v ogDoc (!tree) ;
             print_endline (string_of_int (Tree.size !tree));
             loop_condition = false;
             ctr := !ctr + 1
@@ -248,29 +248,29 @@ let index_query_builder col_tree query_doc =
       | "$gte" -> Some GreaterEq
       | "$ne" -> Some NotEq
       | _ -> None
-    in
-    let max_temp = `List[`Int max_int] in
-    match comparator with
-    | Some Less -> get_range col_tree (snd h) `Null
-    | Some Greater -> get_range col_tree max_temp (snd h)
-    | Some LessEq ->
-      (get_range col_tree (snd h) `Null) @ (find (snd h) col_tree)
-    | Some GreaterEq ->
-      (get_range col_tree (snd h) max_temp) @ (find (snd h) col_tree)
-    | Some NotEq ->
-      (get_range col_tree (snd h) `Null) @ (get_range col_tree max_temp (snd h))
-    | None -> match (nested_json (snd h)) with
-      | true -> (
-        (* We have a doc as the value, need to recurse *)
-        (* Represents the nested doc in the query_doc *)
-        let nested = match (snd h) with
-          | `Assoc lst -> lst
-          | _ -> failwith "Can't be here" in
-        (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
-        if h |> snd |> comparator_json then helper col_tree nested else []
-      )
-      (* We have an equality check *)
-      | false -> find (snd h) col_tree
+      in
+      let max_temp = `List[`Int max_int] in
+      match comparator with
+      | Some Less -> get_range col_tree (snd h) `Null
+      | Some Greater -> get_range col_tree max_temp (snd h)
+      | Some LessEq ->
+        (get_range col_tree (snd h) `Null) @ (find (snd h) col_tree)
+      | Some GreaterEq ->
+        (get_range col_tree (snd h) max_temp) @ (find (snd h) col_tree)
+      | Some NotEq ->
+        (get_range col_tree (snd h) `Null) @ (get_range col_tree max_temp (snd h))
+      | None -> match (nested_json (snd h)) with
+        | true -> (
+          (* We have a doc as the value, need to recurse *)
+          (* Represents the nested doc in the query_doc *)
+          let nested = match (snd h) with
+            | `Assoc lst -> lst
+            | _ -> failwith "Can't be here" in
+          (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
+          if h |> snd |> comparator_json then helper col_tree nested else []
+        )
+        (* We have an equality check *)
+        | false -> find (snd h) col_tree
   in
   match query_doc with
   | `Assoc lst -> helper col_tree lst
@@ -333,38 +333,36 @@ let check_doc doc query_doc =
   | _ -> raise InvalidQueryDocException
 
 (**
- * Converts the doc list returned by index checker into a normal list of docs rather than a nested list.
- *)
-let demistify lst =
-  let final_result = ref [] in
-  let ctr = ref 0 in
-  while (!ctr < List.length lst)
-  do (
-    final_result := (List.nth (List.nth lst !ctr) 0)::!final_result; ctr := !ctr + 1
-  ) done;
-  !final_result
-
-(**
  * Checks if there are any indices that match the current queries field.
  * IF there are, we want to get teh docs associated with this query from the index
  * And return those after converting to a normal doc list.
  * Otherwise, continue and ultimately just
  * return whatever the collection's list of docs are if no index can be matched
  *)
-let index_checker (col:Persist.col) queryList =
+let rec index_checker col query_list =
+  (* match query_list with
+  | [] -> fst col
+  | h::t ->
+    let index_list = snd col in
+    let index = get_index (fst h) index_list in
+    if index <> Tree.empty then
+      index_query_builder index (`Assoc [h])
+    else
+      index_checker col t *)
+
   let ctr = ref(0) in
   let index_list = (snd) col in
   let docs = ref([]) in
   let break_condition = ref(false) in
-  while (!break_condition = false & !ctr < List.length queryList)
+  while (!break_condition = false & !ctr < List.length query_list)
   do (
-    let index = get_index (fst (List.nth queryList !ctr)) index_list in
+    let index = get_index (fst (List.nth query_list !ctr)) index_list in
     if index <> Tree.empty then (
-      docs := demistify (index_query_builder index (`Assoc [List.nth queryList !ctr]));
+      docs := index_query_builder index (`Assoc [List.nth query_list !ctr]);
       break_condition := true;
     ) else ctr := !ctr + 1
   ) done;
-  if !docs = [] then (docs := (fst col); !docs) else !docs
+  if !docs = [] then (docs := (fst col);print_endline "test"; !docs) else !docs
 
 (**
  * Given a string representing a query JSON, looks for matching docs in
@@ -407,23 +405,23 @@ let key_set tbl =
  * Given the database, collection, desired index_name and querydoc, creates a index
  *)
 let create_index db_name col_name index_name query_doc =
-  let db = db_name |> get_db in 
+  let db = db_name |> get_db in
   let col = db |> get_col col_name in
   let query_result = List.filter (fun d -> check_doc d query_doc) (fst col) in
   match List.length query_result with
   | 0 -> CreateIndexResponse(false, "no docs matched the desired field")
-  | _ -> 
-    let table = Hashtbl.create 5 in 
-    let keys_array = 
+  | _ ->
+    let table = Hashtbl.create 5 in
+    let keys_array =
       List.iter (fun res -> Hashtbl.add table (Util.member index_name res) res) query_result;
       key_set table in
     let tree = ref Tree.empty in
     let update = {id_name = index_name; id_table = table; keys = tree} in
     key_sort keys_array;
-    keys_array |> Array.to_list |> List.iter (fun key -> 
-      let table_list = Hashtbl.find_all table key in 
-      List.iter (fun ele -> tree := Tree.insert key [ele] !tree) table_list
-    ); 
+    keys_array |> Array.to_list |> List.iter (fun key ->
+      let table_list = Hashtbl.find_all table key in
+      List.iter (fun ele -> tree := Tree.insert key ele !tree) table_list
+    );
     (fst col, update::(snd col)) |> Hashtbl.replace (fst db) col_name;
     CreateIndexResponse(true, "Index was successfully made!")
 
@@ -597,7 +595,7 @@ let remove_and_get_doc db_name col_name query_doc =
     let db = get_db db_name in
     let col = get_col col_name db in
     let query = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in 
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
     Hashtbl.replace (fst db) col_name (new_col,[]);
     query
   ) with
