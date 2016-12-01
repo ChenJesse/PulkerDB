@@ -136,7 +136,7 @@ let parse input =
       )
     | _ -> failwith "Improper tuple"
   ) with
-  | ParseDocError -> ParseErrorResponse(false, "Invalid document provided. Refer to documentation in -help for more information.")
-  | ParseError -> ParseErrorResponse(false, "Invalid command inputed.")
-  | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name.")
-  | _ -> ParseErrorResponse(false, "Something unexpected happened.")
+  | ParseDocError -> Failure "Invalid document provided. Refer to documentation in -help for more information."
+  | ParseError -> Failure "Invalid command inputed."
+  | ImproperNameError -> Failure "Invalid database or collection name."
+  | _ -> Failure "Something unexpected happened."

@@ -4,7 +4,7 @@ open Db
 open Str
 
 let () =
-  ANSITerminal.(print_string [red] 
+  ANSITerminal.(print_string [green] 
     "___________________________________________________________________________
     \nWelcome to PulkerDB, a NoSQL database. Press -help for a list of commands.\n\n");
   print_arrow ();
