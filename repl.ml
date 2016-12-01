@@ -1,6 +1,5 @@
 open Interpreter
-
-let spacing = "    "
+open Help
 
 let print_arrow () = ANSITerminal.(print_string [blue] "::> ")
 
@@ -8,44 +7,17 @@ let print_error msg = ANSITerminal.(print_string [red] (spacing ^ "ERROR: " ^ ms
 
 let print_output msg = ANSITerminal.(print_string [magenta] (spacing ^ msg ^ "\n"))
 
-let help_msg = "
-                        REPL COMMANDS
----------------------------------------------------------------
-| -exit : Exit the programming gracefully                     |
-| -gen_doc : Information on format for ANY_DOC                |
-| -query_doc : Information on format for QUERY_DOC            |
-| -update_doc : Information on format for UPDATE_DOC          |
-| -agg_doc : Information on format for for AGG_DOC            |
-| -index_doc : Information on format for for AGG_DOC          |
----------------------------------------------------------------
+let print_info msg = ANSITerminal.(print_string [green] (spacing ^ msg ^ "\n"))
 
-                      DATABASE COMMANDS
----------------------------------------------------------------
-| use DATABASE_NAME                                           |
-| db.dropDatabase()                                           |
-| db.createCollection(COLLECTION_NAME)                        |
-| db.COLLECTION_NAME.drop()                                   |
-| db.COLLECTION_NAME.insert(GEN_DOC)                          |
-| db.COLLECTION_NAME.find()                                   |
-| db.COLLECTION_NAME.show()                                   |
-| db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)             |
-| db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC)           |
-| db.COLLECTION_NAME.remove(QUERY_DOC)                        |
-| db.COLLECTION_NAME.aggregate(AGG_DOC)                       |
-| db.COLLECTION_NAME.createIndex(INDEX_DOC)
-
---------------------------------------------------------------- \n"
-
-let rec loop input =
-  (if input = "-exit" then
-    let () = Persist.write_env Db.environment in
-    exit(0)
-  else if input = "-help" then ANSITerminal.(print_string [green] help_msg)
-  else if input = "-gen_doc" then ANSITerminal.(print_string [green] "gendoc")
-  else if input = "-query_doc" then ANSITerminal.(print_string [green] "querydoc")
-  else if input = "-update_doc" then ANSITerminal.(print_string [green] "updatedoc")
-else if input = "-agg_doc" then ANSITerminal.(print_string [green] "aggdoc")
-  else
+let rec loop input = (
+  match input with 
+  | "-exit" -> Persist.write_env Db.environment; exit(0)
+  | "-help" -> ANSITerminal.(print_info help_msg)
+  | "-gen_doc" -> ANSITerminal.(print_info gen_doc_msg)
+  | "-query_doc" -> ANSITerminal.(print_info query_doc_msg)
+  | "-update_doc" -> ANSITerminal.(print_info update_doc_msg)
+  | "-agg_doc" -> ANSITerminal.(print_info agg_doc_msg)
+  | _ -> (
     match parse input with
     | CreateDBResponse (x, msg) ->
       if x then print_output "Successfully created database!"
@@ -88,7 +60,7 @@ else if input = "-agg_doc" then ANSITerminal.(print_string [green] "aggdoc")
     else print_error "Aggregation failed."
     | ParseErrorResponse(x, output) ->
       print_error ("Parsing failed. " ^ output)
-  );
+  ));
   print_arrow ();
   let new_input = read_line () in
   loop new_input

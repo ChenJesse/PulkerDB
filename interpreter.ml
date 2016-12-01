@@ -106,22 +106,23 @@ let parse input =
       | Triple (a, b, c) -> ( match b with
         | "show" -> if c = "" then show_db a else raise ParseError
         | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
-        | "createcollection" -> if (validate_name c) then create_col a c
-                                else raise ImproperNameError
+        | "createcollection" -> 
+          if (validate_name c) then create_col a c
+          else raise ImproperNameError
         | _ -> raise ParseError
       )
       | Quad (a, b, c, d) -> (match c with
-        | "createindex" -> (let e = parse_json d in
-                           match e with
-                           |`Assoc lst -> match lst with
-                            |((f:string) , (g:Yojson.Basic.json))::tl->
-                            let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
-                            create_index a b f query_doc)
+        | "createindex" -> (
+          let e = parse_json d in
+          match e with
+          |`Assoc lst -> match lst with
+          | ((f : string), (g : Yojson.Basic.json))::tl ->
+            let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
+            create_index a b f query_doc)
         | "drop" -> if d = "" then drop_col a b else raise ParseError
         | "show" -> if d = "" then show_col a b else raise ParseError
         | "insert" -> parse_json d |> create_doc a b
         | "find" ->  parse_json d |> query_col a b
-
         | "aggregate" -> parse_json d |> aggregate a b
         | "remove" -> parse_json d |> remove_doc a b
         | "replace" ->
