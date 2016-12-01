@@ -254,32 +254,31 @@
      (*
       * Highval has to be > than the actual bound we want by like at least 1, lowval has to be less than the actual lowval we want by at least 1
       *)
-    let rec findDocs  d  highval lowval =
-    match d with
+    let rec find_docs  d  highval lowval = match d with
       | Leaf -> []
       | TwoNode ((k, v), l, r) -> let highCom = compareJSON k highval in
         let lowCom = compareJSON k lowval in
         if ((highCom = -1) && (lowCom = 1)) then
-          v @(findDocs  l  highval lowval)@(findDocs  r  highval lowval)
+          v @(find_docs  l  highval lowval)@(find_docs  r  highval lowval)
         else
           if ((highCom =1) || (highCom = 0)) then
-            findDocs  l  highval lowval
+            find_docs  l  highval lowval
           else
-            findDocs r  highval lowval
+            find_docs r  highval lowval
       | ThreeNode ((k1, v1), (k2, v2), l, m, r) ->
          let highComk1 = compareJSON k1 highval in
          let highComk2 = compareJSON k2 highval in
          let lowComk1  = compareJSON k1 lowval in
          let lowComk2 = compareJSON k2 lowval in
          match lowComk1, highComk1, lowComk2, highComk2 with
-         |0,_,1, -1-> v2@(findDocs l  highval lowval)@(findDocs m  highval lowval)@(findDocs r  highval lowval)
-         |0,_,_, 0 -> findDocs m  highval lowval
-         |0,0,_,_->[]
-         |1, -1, 1, -1 -> v1@v1@(findDocs l  highval lowval)@(findDocs m  highval lowval)@(findDocs r  highval lowval)
-         |1,0, _, _-> findDocs l  highval lowval
-         |1,-1,1,0-> v1@(findDocs l  highval lowval)@(findDocs m  highval lowval)
-         |_,_,0,_-> (findDocs r  highval lowval)
-         |_ -> v1@v2@[]
+         | 0,_,1, -1-> v2@(find_docs l  highval lowval)@(find_docs m  highval lowval)@(find_docs r  highval lowval)
+         | 0,_,_, 0 -> find_docs m  highval lowval
+         | 0,0,_,_->[]
+         | 1, -1, 1, -1 -> v1@v1@(find_docs l  highval lowval)@(find_docs m  highval lowval)@(find_docs r  highval lowval)
+         | 1,0, _, _-> find_docs l  highval lowval
+         | 1,-1,1,0-> v1@(find_docs l  highval lowval)@(find_docs m  highval lowval)
+         | _,_,0,_-> (find_docs r  highval lowval)
+         | _ -> v1@v2@[]
   (* [remove_up node parent direction]
    * Pushes the given node into the parent, returning either
    * a new hole if the result does not satisfy the invariant, or an absorbed

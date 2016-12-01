@@ -2,8 +2,8 @@ open Yojson.Basic
 open Db
 open Persist
 
-type tuple = 
-| Nil 
+type tuple =
+| Nil
 | Single of string
 | Pair of string * string
 | Triple of string * string * string
@@ -27,7 +27,7 @@ let parse_json json_string = try (from_string json_string) with | _ -> raise Par
 let sanitize_input input = String.(trim input |> lowercase_ascii)
 
 (** Check that the collection or database name is valid *)
-let validate_name input = 
+let validate_name input =
   not (String.(contains input ' ' || contains input '(' || contains input ')'))
 
 (**
@@ -43,47 +43,47 @@ let prefix c input = String.sub input 0 (String.index input c)
 let rprefix c input = String.sub input 0 (String.rindex input c)
 
 (**
- * Returns a string containing everything after 
+ * Returns a string containing everything after
  * the first instance of c in input
  *)
-let suffix c input = ((String.length input) - ((String.index input c) + 1)) 
+let suffix c input = ((String.length input) - ((String.index input c) + 1))
     |> String.sub input ((String.index input c) + 1)
 
 (**
  * Returns response, given a sanitized input
  *)
-let handle_use_db input = 
-  let command = prefix ' ' input in 
-  let database = suffix ' ' input in 
-  match command with 
-    | "use" -> if (validate_name database) then create_db database 
+let handle_use_db input =
+  let command = prefix ' ' input in
+  let database = suffix ' ' input in
+  match command with
+    | "use" -> if (validate_name database) then create_db database
                else raise ImproperNameError
     | _ -> raise ParseError
 
 (**
- * Given an input, parses it into a tuple of 3 or 4 
+ * Given an input, parses it into a tuple of 3 or 4
  * elements
  *)
-let tuplize_input input = 
-  let rec helper acc i = 
-    match i with 
-    | "" -> ( match acc with 
+let tuplize_input input =
+  let rec helper acc i =
+    match i with
+    | "" -> ( match acc with
       | Pair(_, _) | Triple(_, _, _) | Quad(_, _, _, _) -> acc
       | _ -> raise ParseError)
-    | _ -> 
-      let (add, remainder) = 
+    | _ ->
+      let (add, remainder) =
         if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
         else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
         else if (String.contains i '(') then ((prefix '(' i), ("(" ^ (suffix '(' i)))
         else (i, "")
-      in 
-      match acc with 
+      in
+      match acc with
       | Nil -> helper (Single(add)) remainder
       | Single a -> helper (Pair(a, add)) remainder
       | Pair (a, b) -> helper (Triple(a, b, add)) remainder
       | Triple (a, b, c) -> helper (Quad(a, b, c, add)) remainder
       | Quad (_, _, _, _) -> failwith "Too many elements"
-  in 
+  in
   helper Nil input
 
 (**
@@ -94,39 +94,47 @@ let tuplize_parameters input = (prefix '|' input, suffix '|' input)
 (**
  * Parses the input from the REPL, and calls the appropriate function
  *)
-let parse input = 
+let parse input =
   try (
-    let i = sanitize_input input in 
-    match (Str.string_match (Str.regexp "use") i 0) with 
+    let i = sanitize_input input in
+    match (Str.string_match (Str.regexp "use") i 0) with
     | true -> handle_use_db i
-    | false -> 
+    | false ->
       if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
       else if input = "show" then show_catalog ()
-      else match (tuplize_input i) with 
-      | Triple (a, b, c) -> ( match b with 
+      else match (tuplize_input i) with
+      | Triple (a, b, c) -> ( match b with
         | "show" -> if c = "" then show_db a else raise ParseError
         | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
         | "createcollection" -> if (validate_name c) then create_col a c
                                 else raise ImproperNameError
         | _ -> raise ParseError
       )
-      | Quad (a, b, c, d) -> (match c with 
+      | Quad (a, b, c, d) -> (match c with
+        | "createindex" -> (let e = parse_json d in
+                           match e with
+                           |`Assoc lst -> match lst with
+                            |((f:string) , (g:Yojson.Basic.json))::tl->
+                            let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
+                            create_index a b f query_doc)
         | "drop" -> if d = "" then drop_col a b else raise ParseError
         | "show" -> if d = "" then show_col a b else raise ParseError
         | "insert" -> parse_json d |> create_doc a b
-        | "find" ->  parse_json d |> query_col a b 
+        | "find" ->  parse_json d |> query_col a b
+
         | "aggregate" -> parse_json d |> aggregate a b
         | "remove" -> parse_json d |> remove_doc a b
-        | "replace" -> 
-          let pair = tuplize_parameters d in 
-          replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
-        | "update" -> 
-          let pair = tuplize_parameters d in 
-          update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
+        | "replace" ->
+          (let pair = tuplize_parameters d in
+          replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
+        | "update" ->
+          (let pair = tuplize_parameters d in
+          update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
         | _ -> raise ParseError
-      ) 
+
+      )
     | _ -> failwith "Improper tuple"
-  ) with 
+  ) with
   | ParseDocError -> ParseErrorResponse(false, "Invalid document provided. Refer to documentation in -help for more information.")
   | ParseError -> ParseErrorResponse(false, "Invalid command inputed.")
   | ImproperNameError -> ParseErrorResponse(false, "Invalid database or collection name.")

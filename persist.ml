@@ -10,14 +10,14 @@
  *)
  open Tree
 
- type doc = Yojson.Basic.json
 
+type doc = Yojson.Basic.json
 
-type indexFile = {idName:string; idTable: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json list Tree.tree ref}
+type index_file = {id_name:string; id_table: (Yojson.Basic.json,Yojson.Basic.json) Hashtbl.t; keys: Yojson.Basic.json list Tree.tree ref}
 
-type indexList = indexFile list
+type index_list = index_file list
 
-type col = doc list * indexList
+type col = doc list * index_list
 
 type db = (string, col) Hashtbl.t * bool
 

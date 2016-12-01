@@ -81,10 +81,11 @@ let trpl_fst t = match t with
 
 let trpl_snd t = match t with
   | (_, b, _) -> b
+
 (**
-* Function for sorting keys of my index in increasing order
-*)
-let keysort arr = Array.sort compareJSON arr
+ * Function for sorting keys of my index in increasing order
+ *)
+let key_sort arr = Array.sort compareJSON arr
 (* -------------------------------CREATION------------------------------- *)
 (**
  * Given a string representing name of db, creates a db in the environment.
@@ -107,38 +108,38 @@ let create_db db_name =
  (**
   * Adds ogDoc to a index if one is found. Otherwise return nothing
   *)
- let rec indexChanger ogDoc doc col =
-    match doc with
-   |[] -> ()
-   |(k,v)::tl-> let loopCondition = true in
-                    let ctr = ref(0) in
-                    let idList = (snd) col in
-                      while(!ctr < (List.length idList) && loopCondition = true) do
-                      (
-                        let curIndex = List.nth idList !ctr in
-                        if((curIndex.idName) = k) then
-                        (
+ let rec index_changer ogDoc doc col = match doc with
+    |[] -> ()
+    |(k,v)::tl->  let loop_condition = true in
+                  let ctr = ref(0) in
+                  let id_list = (snd) col in
+                    while(!ctr < (List.length id_list)
+                        && loop_condition = true) do (
+
+                        let cur_index = List.nth id_list !ctr in
+                        if((cur_index.id_name) = k) then (
+
                           print_endline "found a match and changing it";
-                          let tree = curIndex.keys in
+                          let tree = cur_index.keys in
                           print_endline (string_of_int (Tree.size !tree));
                           tree:= (Tree.insert (v) ([ogDoc]) (!tree) );
                           print_endline (string_of_int (Tree.size !tree));
-                          loopCondition = false;
+                          loop_condition = false;
                           ctr:=!ctr+1;
                           ()
                        )
                         else (
                             ctr:= !ctr+1
                         )
-                      ) done; indexChanger ogDoc tl col
+                      ) done; index_changer ogDoc tl col
 
 (**
-* Given the doc, update the index if that doc's attribute matches a declared index field.
-*)
-  let rec indexUpdater (ogDoc) (doc) col =
-  match doc with
-  |`Assoc a->( match a with |((b:string),(c:Tree.key))::tl -> indexChanger ogDoc a col)
-  |_ -> ()
+ * Given the doc, update the index
+ * if that doc's attribute matches a declared index field.
+ *)
+  let rec index_updater ogDoc doc col = match doc with
+    |`Assoc a->( match a with |((b:string),(c:Tree.key))::tl -> index_changer ogDoc a col)
+    |_ -> ()
 
 
 
@@ -147,10 +148,10 @@ let create_db db_name =
 * Returns the tree associated with the specified index in the index desired. Returns empty if no index can be found.
 *)
 
- let rec getIndex index_name index =
- match index with
- |[]->Tree.empty
- |{ idName = a; idTable =_; keys= c}::tl->  if(a = index_name) then(  !c )else getIndex index_name tl
+ let rec get_index index_name index =match index with
+ | []->Tree.empty
+ | {id_name = a; id_table =_; keys= c}::tl->
+        if(a = index_name) then( !c )else get_index index_name tl
 
 (**
  * Given a string representation of JSON, creates a doc in the environment.
@@ -160,9 +161,9 @@ let create_doc db_name col_name doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-     let colList = (fst)col in
-    let new_col = doc::colList in
-    indexUpdater doc doc col;
+    let col_list = (fst)col in
+    let new_col = doc::col_list in
+    index_updater doc doc col;
     let new_colIndex = (new_col, (snd) col) in
     Hashtbl.replace (fst db) col_name new_colIndex;
     set_dirty (db_name);
@@ -242,67 +243,70 @@ let compare_string op (doc1 : doc) (doc2 : doc) converter =
  * collectionTree is the index for the attribute specified.
  *This needs to parse the query and figure out what type of query it is.
  *Depending on what type of query it is, it will then call traverse with certain bounds on the tree *)
-let indexQueryBuilder collectionTree query_doc = (
-   let rec helper collectionTree query_doc =
-   match query_doc with
-  |h::t -> let comparator = match (fst h) with
-    | "$lt" -> Some Less
-    | "$lte" -> Some LessEq
-    | "$gt" -> Some Greater
-    | "$gte" -> Some GreaterEq
-    | "$ne" -> Some NotEq
-    | _ -> None
-  in
-  match comparator with
-  |Some Less -> let doc2 = snd h in (findDocs collectionTree doc2 `Null)
-  |Some Greater -> let doc2 = snd h in (findDocs collectionTree (`List[`Int 99999999999999 ]) doc2)
-  |Some LessEq -> (let doc2  = snd h in
-                  let realDoc2 = (match doc2 with
-                                |`Null -> `Null
-                                |`Int a -> let b = (a+1) in (`Int b)
-                                |`Float a -> let b = a +.1.0 in (`Float b)
-                                |`String a -> (let d = String.get a ((String.length a)-1) in
-                                              let code = (Char.code d)+1 in
-                                              let charNew = Char.chr code in
-                                              let newString =
-                                              String.concat "" [(String.sub a 0 ((String.length a)-1)); (String.make 1 charNew)] in
-                                              `String newString)
-                                |`Bool a ->  `Bool a
+let index_query_builder collectionTree query_doc = (
+   let rec helper collectionTree query_doc = match query_doc with
+    |h::t ->
+      let comparator = match (fst h) with
+      | "$lt" -> Some Less
+      | "$lte" -> Some LessEq
+      | "$gt" -> Some Greater
+      | "$gte" -> Some GreaterEq
+      | "$ne" -> Some NotEq
+      | _ -> None
+    in
+    let max_temp = `List[`Int 99999999999999] in
+    match comparator with
+    | Some Less ->    let doc2 = snd h in (find_docs collectionTree doc2 `Null)
+    | Some Greater -> let doc2 = snd h in (find_docs collectionTree (max_temp) doc2)
+    | Some LessEq -> (let doc2  = snd h in
+                      let real_doc2 = (match doc2 with
+                                | `Null -> `Null
+                                | `Int a -> let b = (a+1) in (`Int b)
+                                | `Float a -> let b = a +.1.0 in (`Float b)
+                                | `String a -> (let d = String.get a ((String.length a)-1) in
+                                               let code = (Char.code d)+1 in
+                                               let charNew = Char.chr code in
+                                               let new_string = String.concat ""
+                                               [(String.sub a 0 ((String.length a)-1));
+                                               (String.make 1 charNew)] in
+                                              `String new_string)
+                                | `Bool a ->  `Bool a
 
                               )
                               in
-                    findDocs collectionTree realDoc2 `Null)
-  |Some GreaterEq -> (let doc2  = snd h in
-                  let realDoc2 = (match doc2 with
-                                |`Null -> `Null
-                                |`Int a -> let b = (a-1) in (`Int b)
-                                |`Float a -> let b = a -.1.0 in (`Float b)
-                                |`String a -> (let d = String.get a ((String.length a)-1) in
+                      find_docs collectionTree real_doc2 `Null)
+    | Some GreaterEq -> (let doc2  = snd h in
+                         let real_doc2 = (match doc2 with
+                                | `Null -> `Null
+                                | `Int a -> let b = (a-1) in (`Int b)
+                                | `Float a -> let b = a -.1.0 in (`Float b)
+                                | `String a -> (let d = String.get a ((String.length a)-1) in
                                               let code = (Char.code d)-1 in
                                               let charNew = Char.chr code in
                                               let newString =
                                               String.concat "" [(String.sub a 0 ((String.length a)-1)); (String.make 1 charNew)] in
                                               `String newString)
-                                |`Bool a ->  `Bool a
+                                | `Bool a ->  `Bool a
 
                               )
                               in
-                    findDocs collectionTree (`List[`Int 99999999999999 ]) realDoc2)
-  |Some NotEq->  let doc2 = snd h in let firstDocList =(findDocs collectionTree doc2 `Null) in
-                 let secDocList =  (findDocs collectionTree (`List[`Int 99999999999999 ]) doc2) in
-                 firstDocList@secDocList
+                    find_docs collectionTree (max_temp) real_doc2)
+    | Some NotEq->  let doc2 = snd h in let first_doc_list =(find_docs collectionTree doc2 `Null) in
+                 let sec_doc_list =  (find_docs collectionTree (max_temp) doc2) in
+                 first_doc_list@sec_doc_list
 
-  | None -> ( match (nested_json (snd h)) with
+    | None -> ( match (nested_json (snd h)) with
       | true -> ((* We have a doc as the value, need to recurse *)
         (* Represents the nested doc in the query_doc *)
         let nested = match (snd h) with
           | `Assoc lst -> lst
           | _ -> failwith "Can't be here" in
         (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
-        if (comparator_json (snd h)) then (helper collectionTree nested) else [])
+        if (comparator_json (snd h)) then (helper collectionTree nested)
+      else  [])
             (*WE have an equality check *)
       | false -> (let doc2 = (snd) h in
-                let realDoc2low= (match doc2 with
+                let real_doc2_low= (match doc2 with
                                 |`Null -> `Null
                                 |`Int a -> let b = (a-1) in (`Int b)
                                 |`Float a -> let b = a -.1.0 in (`Float b)
@@ -315,7 +319,7 @@ let indexQueryBuilder collectionTree query_doc = (
                                 |`Bool a ->  `Bool a
 
                               ) in
-                let realDoc2high = (match doc2 with
+                let real_doc2_high = (match doc2 with
                                 |`Null -> `Null
                                 |`Int a -> let b = (a+1) in (`Int b)
                                 |`Float a -> let b = a +.1.0 in (`Float b)
@@ -328,7 +332,7 @@ let indexQueryBuilder collectionTree query_doc = (
                                 |`Bool a ->  `Bool a
 
                               ) in
-                findDocs collectionTree realDoc2high realDoc2low ) )
+                find_docs collectionTree real_doc2_high real_doc2_low ) )
 
    in
   match query_doc with
@@ -351,7 +355,7 @@ let check_doc doc query_doc =
       | _ -> None
     in
     match comparator with
-    |Some Exists -> print_endline "came into this"; let doc1= Util.member p_key doc in let doc2 = (snd) h in
+    | Some Exists -> print_endline "came into this"; let doc1= Util.member p_key doc in let doc2 = (snd) h in
     if((doc1 <> `Null && doc2 =`Bool true) || (doc1 = `Null && doc2 = `Bool false)) then true else false
     | Some c ->
       let doc1 = Util.member p_key doc in
@@ -396,36 +400,39 @@ let check_doc doc query_doc =
  * Converts the doc list returned by index checker into a normal list of docs rather than a nested list.
  *)
  let demistify lst =
-   let finalResult = ref([]) in
+   let final_result = ref([]) in
    let ctr = ref(0) in
-   while (!ctr < List.length lst) do (finalResult:= (List.nth (List.nth lst !ctr) 0)::!finalResult; ctr:=!ctr+1) done;
-   !finalResult
+   while (!ctr < List.length lst) do (final_result:= (List.nth (List.nth lst !ctr) 0)::!final_result; ctr:=!ctr+1) done;
+   !final_result
 
  (**
   * Checks if there are any indices that match the current queries field.
   * IF there are, we want to get teh docs associated with this query from the index
   * And return those after converting to a normal doc list.
-   Otherwise, continue and ultimately just return whatever the collection's list of docs are if no index can be matched
- *)
- let indexChecker (col:Persist.col) queryList =
+  * Otherwise, continue and ultimately just
+  * return whatever the collection's list of docs are if no index can be matched
+  *)
+ let index_checker (col:Persist.col) queryList =
     let ctr = ref(0) in
-    let indexList = (snd) col in
+    let index_list = (snd) col in
     let docs = ref([]) in
-    let breakCondition = ref(false) in
-    while(!breakCondition = false & !ctr < List.length queryList)
+    let break_condition = ref(false) in
+    while(!break_condition = false & !ctr < List.length queryList)
     do (
-         let index = (getIndex ((fst) (List.nth queryList !ctr)) indexList) in
-      if(index<>Tree.empty)
-      then (
-           docs := demistify (indexQueryBuilder index (`Assoc [List.nth queryList !ctr])); (* NEed to fix logic here after checkign why its doc list list list (two extra lists..)*)
-          breakCondition := true
-         )
+         let index = (get_index ((fst) (List.nth queryList !ctr)) index_list) in
+         if(index<>Tree.empty)
+          then (
+             docs := demistify (index_query_builder index (`Assoc [List.nth queryList !ctr]));
+            break_condition := true;
+               )
        else (
-            ctr:=!ctr+1
-       )
+              ctr:=!ctr+1
+            )
 
     ) done;
-    (if(!docs = []) then  (docs:= ((fst) col); !docs) else ( !docs)) (*need to fix logic here as well *)
+    (if(!docs = [])
+    then  (docs:= ((fst) col); !docs)
+    else (!docs))
 
 
 (**
@@ -436,8 +443,8 @@ let check_doc doc query_doc =
 let query_col db_name col_name query_doc =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
-    let lstQueries = (match query_doc with |`Assoc lst -> lst |_ -> [] ) in
-    let documents = indexChecker col lstQueries in
+    let lst_queries = (match query_doc with |`Assoc lst -> lst |_ -> [] ) in
+    let documents = index_checker col lst_queries in
     let query_result = List.filter (fun d -> check_doc d query_doc) documents in
     let query_string = `List(query_result) |> pretty_to_string in
     QueryResponse(true, query_string)
@@ -450,66 +457,79 @@ let query_col db_name col_name query_doc =
 (**
  * Extract all the keys associated with this List, removing duplicates as we go.
  *)
-let rec extractKeys listTbl keyList =
+let rec extract_keys listTbl keyList =
   match listTbl with
   |[]-> keyList
-  |(k,v)::tl -> if(List.mem k keyList) then extractKeys tl keyList else extractKeys tl (k::keyList)
+  |(k,v)::tl -> if(List.mem k keyList)
+                then (extract_keys tl keyList)
+                else (extract_keys tl (k::keyList))
 
 (**
 * Return the keySet for my hashtable, tbl. That is, a set with only unique keys.
 *)
-let keySet tbl =
-  let listTbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
-  let finalList = extractKeys listTbl [] in
-  let arrNew = Array.make (List.length finalList) `Null in
+let key_set tbl =
+  let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
+  let final_list = extract_keys list_tbl [] in
+  let arr_new = Array.make (List.length final_list) `Null in
   let ctr = ref(0) in
-  while(!ctr<List.length finalList)
-  do (Array.set arrNew !ctr (List.nth finalList !ctr);
-ctr:= !ctr +1) done;
-  arrNew
+  while(!ctr<List.length final_list)
+  do (
+       Array.set arr_new !ctr (List.nth final_list !ctr);
+       ctr:= !ctr +1
+      ) done;
+  arr_new
 
 (**
 * Given the database, collection, desired index_name and querydoc, creates a index
 *
 *)
-let createIndex db col_name index_name querydoc=
-let col = (db |> get_db |> get_col col_name) in
-    let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in (*(doublecheck if this is right) Get all the tuples with the attribute *)
-     let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
-    let ctr = ref(0) in
-    let len = List.length query_result in
-    while(!ctr < len)
-    do (
-    let currentDoc = List.nth (query_result) (!ctr) in
-    let t = Util.member index_name currentDoc in(*Load them all into the hashtable *)
-    Hashtbl.add table t currentDoc;
-    ctr:= !ctr+1;
-  ) done;
-    let keysTb =  (keySet table) in
-    keysort (keysTb);
-    let ctr2 = ref(0) in
-    let len = Array.length keysTb in
-    let tree = ref(Tree.empty) in
-    while(!ctr2 < len)
-    do (
-      let ctr3 = ref(0) in
-      let tblList = Hashtbl.find_all table (Array.get keysTb !ctr2)  in
-       while (!ctr3 < List.length tblList)
-       do
-       (
-           tree:=(Tree.insert (Array.get keysTb !ctr2)  ([List.nth tblList !ctr3] ) !tree);
-           ctr3 := !ctr3+1
+let create_index db col_name index_name querydoc=
+    let col = (db |> get_db |> get_col col_name) in
+    let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in
+    if(List.length query_result = 0)
+      then (
+          CreateIndexResponse(false, "no docs matched the desired field")
+            )
+    else ( (*(doublecheck if this is right) Get all the tuples with the attribute *)
+      let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
+      let ctr = ref(0) in
+      let len = List.length query_result in
+      let pam = print_string index_name in
+      while(!ctr < len)
+      do (
+        let current_doc = List.nth (query_result) (!ctr) in
+        let t = Util.member index_name current_doc in(*Load them all into the hashtable *)
+        Hashtbl.add table t current_doc;
+        ctr:= !ctr+1;
+        ) done;
+      let keys_tb =  (key_set table) in
+      key_sort (keys_tb);
+      let ctr2 = ref(0) in
+      let len = Array.length keys_tb in
+      let tree = ref(Tree.empty) in
+      while(!ctr2 < len)
+      do (
+          let ctr3 = ref(0) in
+          let tbl_list = Hashtbl.find_all table (Array.get keys_tb !ctr2)  in
+          while (!ctr3 < List.length tbl_list)
+          do (
 
-       )done;
-       ctr2:= !ctr2+1
-    ) done;
+                tree:=(Tree.insert (Array.get keys_tb !ctr2)  ([List.nth tbl_list !ctr3] ) !tree);
+                ctr3 := !ctr3+1
 
-   let t = {idName=index_name; idTable = table; keys = tree} in
-    let idList = t::((snd) col) in
-    let new_col = ((fst)col, idList) in
-    let olddb = db |> get_db in
-    Hashtbl.replace ((fst)olddb) col_name new_col;
-    tree (* remove this print later. *)
+            ) done;
+          ctr2:= !ctr2+1
+        ) done;
+
+      let t = {id_name=index_name; id_table = table; keys = tree} in
+      let id_list = t::((snd) col) in
+      let new_col = ((fst)col, id_list) in
+      let old_db = db |> get_db in
+      Hashtbl.replace ((fst)old_db) col_name new_col;
+      !tree;
+      CreateIndexResponse(true, "Index was successfully made!")
+    )
+      (* remove this print later. *)
 
 
 (**
