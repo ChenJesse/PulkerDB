@@ -71,6 +71,11 @@ let trpl_fst t = match t with
 let trpl_snd t = match t with
   | (_, b, _) -> b
 
+let compareJSON a b =
+  if a > b then 1
+  else if a < b then -1
+  else 0
+
 (**
  * Function for sorting keys of my index in increasing order
  *)
@@ -99,11 +104,11 @@ let create_db db_name =
 *)
 let rec index_changer ogDoc doc col = match doc with
   | [] -> ()
-  | (k,v)::tl -> 
+  | (k,v)::tl ->
     let loop_condition = true in
     let ctr = ref 0 in
     let id_list = snd col in
-      while (!ctr < (List.length id_list) && loop_condition) 
+      while (!ctr < (List.length id_list) && loop_condition)
         do (
           let cur_index = List.nth id_list !ctr in
           if (cur_index.id_name) = k then (
@@ -115,7 +120,7 @@ let rec index_changer ogDoc doc col = match doc with
             loop_condition = false;
             ctr := !ctr + 1
           ) else ctr := !ctr + 1
-        ) done; 
+        ) done;
     index_changer ogDoc tl col
 
 (**
@@ -123,8 +128,8 @@ let rec index_changer ogDoc doc col = match doc with
  * if that doc's attribute matches a declared index field.
  *)
 let rec index_updater ogDoc doc col = match doc with
-  |`Assoc a -> ( 
-    match a with 
+  |`Assoc a -> (
+    match a with
     | ((b : string),(c : Tree.key))::tl -> index_changer ogDoc a col
     | _ -> ()
   )
@@ -133,7 +138,7 @@ let rec index_updater ogDoc doc col = match doc with
 (**
  * Returns the tree associated with the specified index in the index desired. Returns empty if no index can be found.
  *)
-let rec get_index index_name index = 
+let rec get_index index_name index =
   match index with
   | [] -> Tree.empty
   | { id_name = a; id_table =_; keys= c }::tl ->
@@ -177,13 +182,13 @@ let create_col db_name col_name =
 
 (* -------------------------------QUERYING-------------------------------- *)
 (* Returns true if the doc is a nested json*)
-let nested_json doc = 
+let nested_json doc =
   match doc with
   | `Assoc _ -> true
   | _ -> false
 
 (* Returns true if the doc is a comparator json ex. "{key: {'$lte', 5}}" *)
-let comparator_json doc = 
+let comparator_json doc =
   match doc with
   | `Assoc lst -> let k = List.hd lst |> fst in (String.get k 0) = '$'
   | _ -> false
@@ -191,7 +196,7 @@ let comparator_json doc =
 (**
  * Given a doc (json), extracts the value into OCaml primitive
  *)
-let rec get_converter (doc1 : doc) (doc2 : doc) = 
+let rec get_converter (doc1 : doc) (doc2 : doc) =
   match doc1, doc2 with
   | (`Bool _, `Bool _) -> ToBool(Util.to_bool)
   | (`Float x, `Float y) -> ToFloat(Util.to_float)
@@ -228,13 +233,13 @@ let compare_string op (doc1 : doc) (doc2 : doc) converter =
   | ToString x -> (unwrap_op op) (x doc1) (x doc2)
   | _ -> failwith "Incorrect converter"
 
-(** 
+(**
  * query_doc is guaranteed to have the field this index tree is built on.
  * collectionTree is the index for the attribute specified.
  * This needs to parse the query and figure out what type of query it is.
  * Depending on what type of query it is, it will then call traverse with certain bounds on the tree *)
-let index_query_builder collectionTree query_doc = 
-  let rec helper collectionTree query_doc = match query_doc with
+let index_query_builder col_tree query_doc =
+  let rec helper col_tree query_doc = match query_doc with
     | h::t ->
       let comparator = match (fst h) with
       | "$lt" -> Some Less
@@ -244,49 +249,17 @@ let index_query_builder collectionTree query_doc =
       | "$ne" -> Some NotEq
       | _ -> None
     in
-    let max_temp = `List[`Int 99999999999999] in
+    let max_temp = `List[`Int max_int] in
     match comparator with
-    | Some Less -> find_docs collectionTree (snd h) `Null
-    | Some Greater -> snd h |> find_docs collectionTree max_temp
-    | Some LessEq -> (
-      let doc = (
-        match snd h with
-        | `Null -> `Null
-        | `Int a -> `Int (a + 1)
-        | `Float a -> `Float (a +. 1.0)
-        | `String a -> (
-          let char_new = (String.get a ((String.length a) - 1) 
-            |> Char.code) + 1 
-            |> Char.chr in
-          `String (String.concat "" [
-              String.sub a 0 ((String.length a) - 1); 
-              (String.make 1 char_new)
-            ])
-        )
-        | `Bool a -> `Bool a
-      )
-      in
-      find_docs collectionTree doc `Null)
-    | Some GreaterEq -> (
-      let doc = match snd h with
-        | `Null -> `Null
-        | `Int a -> `Int (a - 1)
-        | `Float a -> `Float (a -. 1.0)
-        | `String a -> (
-          let char_new = (String.get a ((String.length a) - 1) 
-            |> Char.code) - 1 |> Char.chr 
-          in
-          `String (String.concat "" [
-            (String.sub a 0 ((String.length a) - 1)); 
-            String.make 1 char_new
-          ])
-        )
-        | `Bool a ->  `Bool a
-      in 
-      find_docs collectionTree (max_temp) doc)
-    | Some NotEq -> 
-      (find_docs collectionTree (snd h) `Null)@(find_docs collectionTree max_temp (snd h))
-    | None -> ( match (nested_json (snd h)) with
+    | Some Less -> get_range col_tree (snd h) `Null
+    | Some Greater -> get_range col_tree max_temp (snd h)
+    | Some LessEq ->
+      (get_range col_tree (snd h) `Null) @ (find (snd h) col_tree)
+    | Some GreaterEq ->
+      (get_range col_tree (snd h) max_temp) @ (find (snd h) col_tree)
+    | Some NotEq ->
+      (get_range col_tree (snd h) `Null) @ (get_range col_tree max_temp (snd h))
+    | None -> match (nested_json (snd h)) with
       | true -> (
         (* We have a doc as the value, need to recurse *)
         (* Represents the nested doc in the query_doc *)
@@ -294,50 +267,13 @@ let index_query_builder collectionTree query_doc =
           | `Assoc lst -> lst
           | _ -> failwith "Can't be here" in
         (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
-        if h |> snd |> comparator_json then helper collectionTree nested else []
+        if h |> snd |> comparator_json then helper col_tree nested else []
       )
       (* We have an equality check *)
-      | false -> (
-        let low = (
-          match snd h with
-          | `Null -> `Null
-          | `Int a -> `Int (a - 1)
-          | `Float a -> `Float (a -. 1.0)
-          | `String a -> (
-            let char_new = (String.get a ((String.length a) - 1) 
-              |> Char.code) - 1 
-              |> Char.chr in
-            `String (
-              String.concat "" [
-                (String.sub a 0 ((String.length a)-1)); 
-                (String.make 1 char_new)
-              ]
-            )
-          )
-          | `Bool a -> `Bool a
-        ) in
-        let high = (
-          match snd h with
-          | `Null -> `Null
-          | `Int a -> `Int (a + 1)
-          | `Float a -> `Float (a +. 1.0)
-          | `String a -> (
-              let char_new = (String.get a ((String.length a) - 1) 
-                |> Char.code) + 1 
-                |> Char.chr in
-              `String (
-                String.concat "" [
-                  (String.sub a 0 ((String.length a)-1)); 
-                  (String.make 1 char_new)
-                ]
-              )
-            )
-          | `Bool a -> `Bool a) in
-          find_docs collectionTree high low ) 
-        )
-   in
+      | false -> find (snd h) col_tree
+  in
   match query_doc with
-  | `Assoc lst -> helper collectionTree lst
+  | `Assoc lst -> helper col_tree lst
   | _ -> failwith "Invalid query JSON"
 
 let check_doc doc query_doc =
@@ -402,7 +338,7 @@ let check_doc doc query_doc =
 let demistify lst =
   let final_result = ref [] in
   let ctr = ref 0 in
-  while (!ctr < List.length lst) 
+  while (!ctr < List.length lst)
   do (
     final_result := (List.nth (List.nth lst !ctr) 0)::!final_result; ctr := !ctr + 1
   ) done;
@@ -455,7 +391,7 @@ let query_col db_name col_name query_doc =
 let rec extract_keys listTbl keyList =
   match listTbl with
   | []-> keyList
-  | (k,v)::tl -> 
+  | (k,v)::tl ->
     if List.mem k keyList then extract_keys tl keyList
     else extract_keys tl (k::keyList)
 
@@ -480,7 +416,7 @@ let key_set tbl =
 let create_index db col_name index_name querydoc=
   let col = (db |> get_db |> get_col col_name) in
   let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in
-  match List.length query_result with 
+  match List.length query_result with
   | 0 -> CreateIndexResponse(false, "no docs matched the desired field")
   | _ -> ( (*(doublecheck if this is right) Get all the tuples with the attribute *)
     let table = Hashtbl.create 5 in (* Create a hashtable for loading *)

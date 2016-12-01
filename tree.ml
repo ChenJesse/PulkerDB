@@ -182,17 +182,17 @@ let rec member key d = match d with
         member key r
 
 let rec find key d = match d with
-  | Leaf -> None
+  | Leaf -> []
   | TwoNode ((k, v), l, r) ->
-    if k = key then (Some v)
+    if k = key then v
     else
       if key < k then
         find key l
       else
         find key r
   | ThreeNode ((k1, v1), (k2, v2), l, m, r) ->
-    if k1 = key then Some v1
-    else if k2 = key then Some v2
+    if k1 = key then v1
+    else if k2 = key then v2
     else
       if key < k1 then
         find key l
