@@ -111,12 +111,12 @@ let parse input =
         | _ -> raise ParseError
       )
       | Quad (a, b, c, d) -> (match c with
-        | "createindex" -> (print_endline "ok"; let e = parse_json d in
+        | "createindex" -> (let e = parse_json d in
                            match e with
                            |`Assoc lst -> match lst with
                             |((f:string) , (g:Yojson.Basic.json))::tl->
                             let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
-                            create_index a b c query_doc)
+                            create_index a b f query_doc)
         | "drop" -> if d = "" then drop_col a b else raise ParseError
         | "show" -> if d = "" then show_col a b else raise ParseError
         | "insert" -> parse_json d |> create_doc a b

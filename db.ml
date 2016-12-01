@@ -302,7 +302,8 @@ let index_query_builder collectionTree query_doc = (
           | `Assoc lst -> lst
           | _ -> failwith "Can't be here" in
         (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
-        if (comparator_json (snd h)) then (helper collectionTree nested) else [])
+        if (comparator_json (snd h)) then (helper collectionTree nested)
+      else  [])
             (*WE have an equality check *)
       | false -> (let doc2 = (snd) h in
                 let real_doc2_low= (match doc2 with
@@ -421,16 +422,17 @@ let check_doc doc query_doc =
          let index = (get_index ((fst) (List.nth queryList !ctr)) index_list) in
          if(index<>Tree.empty)
           then (
-           docs := demistify (index_query_builder index (`Assoc [List.nth queryList !ctr]));
+             docs := demistify (index_query_builder index (`Assoc [List.nth queryList !ctr]));
+            break_condition := true;
                )
        else (
-            ctr:=!ctr+1
+              ctr:=!ctr+1
             )
 
     ) done;
     (if(!docs = [])
     then  (docs:= ((fst) col); !docs)
-    else ( !docs))
+    else (!docs))
 
 
 (**
@@ -492,6 +494,7 @@ let create_index db col_name index_name querydoc=
       let table = Hashtbl.create 5 in(* Create a hashtable for loading *)
       let ctr = ref(0) in
       let len = List.length query_result in
+      let pam = print_string index_name in
       while(!ctr < len)
       do (
         let current_doc = List.nth (query_result) (!ctr) in
@@ -523,6 +526,7 @@ let create_index db col_name index_name querydoc=
       let new_col = ((fst)col, id_list) in
       let old_db = db |> get_db in
       Hashtbl.replace ((fst)old_db) col_name new_col;
+      !tree;
       CreateIndexResponse(true, "Index was successfully made!")
     )
       (* remove this print later. *)
