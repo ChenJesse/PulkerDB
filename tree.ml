@@ -1,29 +1,5 @@
 type key = Yojson.Basic.json
 
-(**
- * Given two jsons, val1, val2 compares them and returns -1, 0, or 1 depending
- * on whether val1< val2; val1=val2; val1>val2 respectively.
- *)
-let compareJSON (val1:Yojson.Basic.json) (val2:Yojson.Basic.json) =
-  match val1,val2 with
-  | (`Null, `Null)-> 0
-  | (`Null, _) -> -1
-  | (_, `Null) -> 1
-  | (`Int a , `Int b)-> if (a > b) then 1 else (if (a < b) then -1 else 0)
-  | (`Int a, _)-> -1
-  | (_, `Int b) -> 1
-  | (`Float a, `Float b) -> if (a > b) then 1 else (if (a < b) then -1 else 0)
-  | (`Float a, _)-> -1
-  | (_, `Float b) -> 1
-  | (`String a, `String b) -> if (a > b) then 1 else (if (a < b) then -1 else 0)
-  | (`String a, _)-> -1
-  | (_, `String b) -> 1
-  | (`Bool a, `Bool b) -> if (a > b) then 1 else (if (a < b) then -1 else 0)
-  | (`Bool a, _)-> -1
-  | (_, `Bool b) -> 1
-  | (`List a, `List b) -> if (a > b) then 1 else (if (a < b) then -1 else 0)
-  | _ -> failwith "Invalid comparison"
-
 (* AF: The recursive tree
      *      (k1,v1)
  *         /       \
@@ -48,7 +24,6 @@ type 'value tree =
 type 'value treeStatus =
   | Kicked of (key * 'value list) * 'value tree * 'value tree
   | Done of 'value tree
-
 
 (* Hole represents the gap left by a removed node. None
  * indicates the result of deleting a terminal node.
@@ -112,30 +87,30 @@ let insert_up node parent = match node with
   | Kicked(kv, l, r) ->
     let child = TwoNode(kv, l, r) in
     match parent with
-      | Leaf -> Done(child)
-      | TwoNode((k,v), l, r) ->
-        if child = l then
-          Done(ThreeNode((keyval child), (k,v),
-            (left child), (right child), r))
-        else
-          Done(ThreeNode((k,v), (keyval child), l,
-            (left child), (right child)))
-      | ThreeNode((k1,v1), (k2,v2), l, m, r) ->
-        if child = l then
-          Kicked(
-            (k1,v1),
-            child,
-            TwoNode((k2,v2), m, r))
-        else if child = m then
-          Kicked(
-            (keyval child),
-            TwoNode((k1,v1), l, (left child)),
-            TwoNode((k2,v2), (right child), r))
-        else
-          Kicked(
-            (k2,v2),
-            TwoNode((k1,v1), l, m),
-            child)
+    | Leaf -> Done(child)
+    | TwoNode((k,v), l, r) ->
+      if child = l then
+        Done(ThreeNode((keyval child), (k,v),
+          (left child), (right child), r))
+      else
+        Done(ThreeNode((k,v), (keyval child), l,
+          (left child), (right child)))
+    | ThreeNode((k1,v1), (k2,v2), l, m, r) ->
+      if child = l then
+        Kicked(
+          (k1,v1),
+          child,
+          TwoNode((k2,v2), m, r))
+      else if child = m then
+        Kicked(
+          (keyval child),
+          TwoNode((k1,v1), l, (left child)),
+          TwoNode((k2,v2), (right child), r))
+      else
+        Kicked(
+          (k2,v2),
+          TwoNode((k1,v1), l, m),
+          child)
 
 (* [insert_down key value d] Given a (key, value) of
  * what you want to insert, inserts an appropriate node in the appropriate
@@ -148,7 +123,7 @@ let insert_up node parent = match node with
 let rec insert_down key value d = match d with
   | Leaf -> insert_up (Kicked((key, [value]), Leaf, Leaf)) d
   | TwoNode((k,v), l, r) ->
-    if ((compareJSON key k) = -1) then
+    if key < k then
       let new_l = (insert_down key value l) in
       match new_l with
       | Done x -> Done(TwoNode((k, v), x, r))
@@ -161,22 +136,22 @@ let rec insert_down key value d = match d with
     else
       Done(TwoNode((k, [value]@v), l, r))
   | ThreeNode((k1,v1), (k2,v2), l, m, r) ->
-    if((compareJSON key k1) = -1) then
+    if key < k1 then
       let new_l = (insert_down key value l) in
       match new_l with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), x, m, r))
       | Kicked(_,_,_) -> insert_up new_l d
-    else if ((compareJSON key k2) = -1) then
+    else if key < k2 then
       let new_m = (insert_down key value m) in
       match new_m with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, x, r))
       | Kicked(_,_,_) -> insert_up new_m d
-    else if ((compareJSON key k2) = 1) then
+    else if key > k2 then
       let new_r = (insert_down key value r) in
       match new_r with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, m, x))
       | Kicked(_,_,_) -> insert_up new_r d
-    else if ((compareJSON key k1) = 0) then
+    else if key = k1 then
       Done(ThreeNode((k1,[value]@v1), (k2,v2), l, m, r))
     else
       Done(ThreeNode((k1,v1), (k2,[value]@v2), l, m, r))
@@ -225,37 +200,31 @@ let rec find key d = match d with
         find key r
 
 (*
- * Highval has to be > than the actual bound we want by like at least 1,
- * lowval has to be less than the actual lowval we want by at least 1
+ * gets all keys between highval and lowval (exclusive) and
+ * concatenates their values
  *)
-let rec find_docs d highval lowval = match d with
+let rec get_range d highval lowval = match d with
   | Leaf -> []
-  | TwoNode ((k, v), l, r) -> let highCom = compareJSON k highval in
-    let lowCom = compareJSON k lowval in
-    if ((highCom = -1) && (lowCom = 1)) then
-      v @ (find_docs l highval lowval) @ (find_docs r highval lowval)
+  | TwoNode ((k, v), l, r) ->
+    if k < highval && k > lowval then
+      v @ (get_range l highval lowval) @ (get_range r highval lowval)
+    else if k >= highval then
+      get_range l highval lowval
     else
-      if ((highCom = 1) || (highCom = 0)) then
-        find_docs l highval lowval
-      else
-        find_docs r highval lowval
+      get_range r highval lowval
   | ThreeNode ((k1, v1), (k2, v2), l, m, r) ->
-    let highComk1 = compareJSON k1 highval in
-    let highComk2 = compareJSON k2 highval in
-    let lowComk1  = compareJSON k1 lowval in
-    let lowComk2 = compareJSON k2 lowval in
-    match lowComk1, highComk1, lowComk2, highComk2 with
-    | 0,_,1,-1 ->
-      v2 @ (find_docs l highval lowval) @ (find_docs m highval lowval) @ (find_docs r highval lowval)
-    | 0,_,_,0 -> find_docs m  highval lowval
-    | 0,0,_,_ -> []
-    | 1,-1,1,-1 ->
-      v1 @ v2 @ (find_docs l highval lowval) @ (find_docs m highval lowval) @ (find_docs r highval lowval)
-    | 1,0,_,_ -> find_docs l  highval lowval
-    | 1,-1,1,0 ->
-      v1 @(find_docs l highval lowval)@(find_docs m highval lowval)
-    | _,_,0,_ -> (find_docs r  highval lowval)
-    | _ -> v1 @ v2 @ []
+    if lowval >= k2 then
+      get_range r highval lowval
+    else if highval <= k2 && lowval >= k1 then
+      get_range m highval lowval
+    else if highval <= k1 then
+      get_range l highval lowval
+    else if highval <= k2 then
+      (get_range l highval lowval) @ (get_range m highval lowval)
+    else if lowval >= k1 then
+      (get_range m highval lowval) @ (get_range r highval lowval)
+    else
+      (get_range l highval lowval) @ (get_range m highval lowval) @ (get_range r highval lowval)
 
 (* [remove_up node parent direction]
  * Pushes the given node into the parent, returning either
@@ -286,12 +255,12 @@ let remove_up node parent direction =
   | TwoNode((kp, vp), lp, rp), TwoNode(kvs, ls, rs), Right2 ->
       Hole(kv, ThreeNode((kp,vp), kvs, ls, rs, hole_child))
   | TwoNode((kp, vp), lp, rp),
-        ThreeNode((ks1, vs1), (ks2, vs2), ls, ms, rs), Left2 ->
+    ThreeNode((ks1, vs1), (ks2, vs2), ls, ms, rs), Left2 ->
       let new_l = TwoNode((kp, vp), hole_child, ls) in
       let new_r = TwoNode((ks2, vs2), ms, rs) in
       Absorbed(kv, TwoNode((ks1, vs1), new_l, new_r))
   | TwoNode((kp, vp), lp, rp),
-        ThreeNode((ks1, vs1), (ks2, vs2), ls, ms, rs), Right2 ->
+    ThreeNode((ks1, vs1), (ks2, vs2), ls, ms, rs), Right2 ->
       let new_l = TwoNode((ks1, vs1), ls, ms) in
       let new_r = TwoNode((kp, vp), rs, hole_child) in
       Absorbed(kv, TwoNode((ks2, vs2), new_l, new_r))
@@ -300,21 +269,21 @@ let remove_up node parent direction =
       let new_l = ThreeNode((kp1,vp1), (ks,vs), hole_child, ls, rs) in
       Absorbed(kv, TwoNode((kp2, vp2), new_l, rp))
   | ThreeNode((kp1,vp1), (kp2,vp2), lp, _, rp),
-        TwoNode((ks,vs), ls, rs), Right3 ->
+    TwoNode((ks,vs), ls, rs), Right3 ->
       let new_r = ThreeNode((ks,vs), (kp2,vp2), ls, rs, hole_child) in
       Absorbed(kv, TwoNode((kp1, vp1), lp, new_r))
   | ThreeNode((kp1,vp1), (kp2,vp2), lp, _, rp),
-        TwoNode((ks,vs), ls, rs), Mid3 ->
+    TwoNode((ks,vs), ls, rs), Mid3 ->
       (* middle follows left-hand algo*)
       let new_l = ThreeNode((ks,vs), (kp1,vp1), ls, rs, hole_child) in
       Absorbed(kv, TwoNode((kp2,vp2), new_l, rp))
   | ThreeNode((kp1,vp1), (kp2,vp2), lp, _, rp),
-        ThreeNode((ks1,vs1), (ks2,vs2), ls, ms, rs), Left3 ->
+    ThreeNode((ks1,vs1), (ks2,vs2), ls, ms, rs), Left3 ->
       let new_l = TwoNode((kp1,vp1), hole_child, ls) in
       let new_m = TwoNode((ks2, vs2), ms, rs) in
       Absorbed(kv, ThreeNode((ks1,vs1), (kp2,vp2), new_l, new_m, rp))
   | ThreeNode((kp1,vp1), (kp2,vp2), lp, _, rp),
-        ThreeNode((ks1,vs1), (ks2,vs2), ls, ms, rs), Right3 ->
+    ThreeNode((ks1,vs1), (ks2,vs2), ls, ms, rs), Right3 ->
       let new_m = TwoNode((ks1,vs1), ls, ms) in
       let new_r = TwoNode((kp2,vp2), rs, hole_child) in
       Absorbed(kv, ThreeNode((kp1,vp1), (ks2,vs2), lp, new_m, new_r))
@@ -362,18 +331,7 @@ let remove_up node parent direction =
       let
       '' *)
 
-
-
-
-
-
-
 let remove key d = d
-
-let choose d = match d with
-  | Leaf -> None
-  | TwoNode (keyval, _, _) -> Some keyval
-  | ThreeNode (keyval, _, _, _, _) -> Some keyval
 
 let fold f init d =
    let rec helper d acc = match d with
@@ -388,8 +346,5 @@ let fold f init d =
 
 let to_list d =
   fold (fun k v acc -> acc@[(k, v)]) [] d
-
-let format format_val fmt d =
-  Format.fprintf fmt "<abstr>" (* TODO: improve if you wish *)
 
 
