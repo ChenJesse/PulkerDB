@@ -41,6 +41,8 @@ type direction =
   | Mid3
   | Right3
 
+let empty = Leaf
+
 let is_empty d = match d with
   | Leaf -> true
   | _ -> false
