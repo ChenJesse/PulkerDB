@@ -10,6 +10,7 @@ exception LocateColException
 exception InvalidUpdateDocException
 exception InvalidAggDocException
 exception InvalidQueryDocException
+exception KeyNotFoundException
 
 let unexpected_error = "Unexpected error"
 let db_find_error db_name = db_name ^ " was not found."
@@ -589,9 +590,9 @@ let remove_and_get_doc db_name col_name query_doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-    let query = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
-    Hashtbl.replace (fst db) col_name (new_col,[]);
+    let query = List.filter (fun d -> check_doc d query_doc) (fst col) in
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) (fst col) in
+    Hashtbl.replace (fst db) col_name (new_col, []);
     query
   ) with
   | _ -> []
@@ -610,18 +611,20 @@ let rec modify_doc doc update_doc =
       | _ -> failwith "Should not be here"
     in
     (* Constructing the updated doc *)
-    `Assoc (
-      List.map (fun pair -> match (fst pair) = u_key with
-        | true -> (
-              match snd pair with
-              | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value)
-              | _ -> (fst pair, u_value)
-            )
-        | false -> pair) lst
-    )
+    if Util.member u_key doc <> `Null then 
+      `Assoc (
+        (List.map (fun pair -> match (fst pair) = u_key with
+          | true -> (
+            match snd pair with
+            | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value)
+            | _ -> (fst pair, u_value)
+          )
+          | false -> pair) lst)
+      )
+    else `Assoc ((u_key, u_value)::lst)
   in
   match update_doc with
-  | `Assoc _ -> helper doc update_doc (* Should only have one assoc pair *)
+  | `Assoc _ -> helper doc update_doc
   | _ -> raise InvalidUpdateDocException
 
 (**
@@ -657,9 +660,9 @@ let update_col db_name col_name query_doc update_doc =
       | _ -> raise InvalidUpdateDocException in
     let query = remove_and_get_doc db_name col_name query_doc in
     let col = get_col col_name db in
-    let new_col = ((fst)col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
+    let new_col = (fst col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
     Hashtbl.replace (fst db) col_name (new_col,(snd) col);
-    let new_index_list = recreate_index db_name col_name ((snd) col) [] in
+    let new_index_list = recreate_index db_name col_name (snd col) [] in
     Hashtbl.replace (fst db) col_name (new_col, new_index_list);
     Success "Collection updated successfully!"
   ) with

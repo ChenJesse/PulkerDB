@@ -31,18 +31,19 @@ let gen_doc_msg =
 
 let query_doc_msg = 
   "A query document. 
-    Every general JSON is a query JSON. 
+    Every general document is a query document. 
     Also supports comparators, which are: $lte, $lt, $gte, $gt, $ne. 
     Example: {a: {$lt: 5}} looks for any documents with a field \"a\" less than 5.
     Example: {a: 5} looks for any documents with a field \"a\" equal to 5."
 
 let update_doc_msg = 
   "An update document. 
-    A general JSON limited to one key value pair. Example: {a: 100}"
+    A general document of the form {$set: {a, b}}, where is the field that you wish to update, and b is any general document. 
+    Example: {$set: {a: 100}}."
 
 let agg_doc_msg = 
   "An aggregation document. 
-    A general JSON that must have an \"_id\" field designating the attribute to group by, and pairs of this structure: 
+    A general document that must have an \"_id\" field designating the attribute to group by, and pairs of this structure: 
     {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method ($sum, $max, or $min), 
     and z is the field name of what you want to aggregate on."
 

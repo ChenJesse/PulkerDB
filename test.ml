@@ -351,6 +351,30 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
       parse "test.c.insert({a: 1, b: 1})";
       parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": 1}})"));
+  "test34" >:: (fun _ -> assert_equal (Success (json_printer "[{c: 100, a: 5, b: 6}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
+      parse "test.c.update({a: 5}|{\"$set\": {c: 100}})"; parse "test.c.find({b: 6})"));
+  "test35" >:: (fun _ -> assert_equal (Success (json_printer "[{c: {d: 100}, a: 5, b: 6}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
+      parse "test.c.update({a: 5}|{\"$set\": {c: {d: 100}}})"; parse "test.c.find({b: 6})"));
+  "test36" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 5, b: {c: {d: 100}}}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: {c: {d: 5}}})";
+      parse "test.c.update({a: 5}|{\"$set\": {b: {c: {d: 100}}}})"; parse "test.c.find({a: 5})"));
+  "test37" >:: (fun _ -> assert_equal (Success (json_printer "[{e: {f: {g: 100}}, a: 5, b: {c: {d: 5}}}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: {c: {d: 5}}})";
+      parse "test.c.update({a: 5}|{\"$set\": {e: {f: {g: 100}}}})"; parse "test.c.find({a: 5})"));
+  "test38" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 5, b: {c: {d: 5, e: 120}}}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
+      parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: 120}}}})"; parse "test.c.find({a: 5})"));
+  "test39" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 5, b: {c: {d: 5, e: {z: \"asdf\"}}}}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
+      parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: {z: \"asdf\"}}}}})"; parse "test.c.find({a: 5})"));
 ]
 
 let suite =
