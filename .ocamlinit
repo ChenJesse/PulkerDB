@@ -2,9 +2,9 @@
 
 #directory "_build";;
 #load "str.cma";;
+#load "tree.cmo";;
 #load "persist.cmo";;
 #load "db.cmo";;
 #load "interpreter.cmo";;
-#use "persist.ml"
+#use "tree.ml";;
 #use "db.ml";;
-#use "repl.ml";;
