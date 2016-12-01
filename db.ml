@@ -388,12 +388,12 @@ let query_col db_name col_name query_doc =
 (**
  * Extract all the keys associated with this List, removing duplicates as we go.
  *)
-let rec extract_keys listTbl keyList =
-  match listTbl with
-  | []-> keyList
-  | (k,v)::tl ->
-    if List.mem k keyList then extract_keys tl keyList
-    else extract_keys tl (k::keyList)
+let rec extract_keys list_tbl key_list =
+  match list_tbl with
+  | [] -> key_list
+  | (k,v)::t ->
+    if List.mem k key_list then extract_keys t key_list
+    else extract_keys t (k::key_list)
 
 (**
  * Return the keySet for my hashtable, tbl. That is, a set with only unique keys.
@@ -401,51 +401,31 @@ let rec extract_keys listTbl keyList =
 let key_set tbl =
   let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
   let final_list = extract_keys list_tbl [] in
-  let arr_new = Array.make (List.length final_list) `Null in
-  let ctr = ref 0 in
-  while !ctr < List.length final_list
-  do (
-    Array.set arr_new !ctr (List.nth final_list !ctr);
-    ctr:= !ctr +1
-  ) done;
-  arr_new
+  Array.of_list final_list
 
 (**
  * Given the database, collection, desired index_name and querydoc, creates a index
  *)
-let create_index db col_name index_name querydoc=
-  let col = (db |> get_db |> get_col col_name) in
-  let query_result = List.filter (fun d-> check_doc d querydoc) ((fst)(col)) in
+let create_index db_name col_name index_name query_doc =
+  let db = db_name |> get_db in 
+  let col = db |> get_col col_name in
+  let query_result = List.filter (fun d -> check_doc d query_doc) (fst col) in
   match List.length query_result with
   | 0 -> CreateIndexResponse(false, "no docs matched the desired field")
-  | _ -> ( (*(doublecheck if this is right) Get all the tuples with the attribute *)
-    let table = Hashtbl.create 5 in (* Create a hashtable for loading *)
-    let counter = ref 0 in
-    let pam = print_string index_name in
-    while !counter < (List.length query_result) do (
-      let current_doc = List.nth query_result (!counter) in
-      current_doc |> Hashtbl.add table (Util.member index_name current_doc);
-      counter := !counter + 1;
-    ) done;
-    let keys_tb = (key_set table) in
-    let counter_2 = ref 0 in
+  | _ -> 
+    let table = Hashtbl.create 5 in 
+    let keys_array = 
+      List.iter (fun res -> Hashtbl.add table (Util.member index_name res) res) query_result;
+      key_set table in
     let tree = ref Tree.empty in
-    key_sort keys_tb;
-    while !counter_2 < (Array.length keys_tb) do (
-      let counter_3 = ref 0 in
-      let tbl_list = Hashtbl.find_all table (Array.get keys_tb !counter_2)  in
-      while (!counter_3 < List.length tbl_list)
-      do (
-        tree := Tree.insert (Array.get keys_tb !counter_2) ([List.nth tbl_list !counter_3] ) !tree;
-        counter_3 := !counter_3 + 1
-      ) done;
-      counter_2 := !counter_2 + 1
-    ) done;
-    let t = { id_name=index_name; id_table = table; keys = tree } in
-    let old_db = db |> get_db in
-    (fst col, t::(snd col)) |> Hashtbl.replace (fst old_db) col_name ;
+    let update = {id_name = index_name; id_table = table; keys = tree} in
+    key_sort keys_array;
+    keys_array |> Array.to_list |> List.iter (fun key -> 
+      let table_list = Hashtbl.find_all table key in 
+      List.iter (fun ele -> tree := Tree.insert key [ele] !tree) table_list
+    ); 
+    (fst col, update::(snd col)) |> Hashtbl.replace (fst db) col_name;
     CreateIndexResponse(true, "Index was successfully made!")
-  )
 
 (**
  * Given a string representing name of col, shows a col in the environment.
@@ -617,7 +597,7 @@ let remove_and_get_doc db_name col_name query_doc =
     let db = get_db db_name in
     let col = get_col col_name db in
     let query = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in (* Keep docs that don't satisfy query_doc *)
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in 
     Hashtbl.replace (fst db) col_name (new_col,[]);
     query
   ) with

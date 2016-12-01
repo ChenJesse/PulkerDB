@@ -166,28 +166,28 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"));
 
-   "test13I" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
+  "test13I" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.createIndex({a:1})"; parse "test.c.find({b: 2})"));
 
-    "test13I_2" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
+  "test13I_2" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.createIndex({b:1})"; parse "test.c.find({b: 2})"));
 
-   "test14" >:: (fun _ -> assert_equal (UpdateColResponse(true, "Success!"))
+  "test14" >:: (fun _ -> assert_equal (UpdateColResponse(true, "Success!"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {\"$set\": {b: 6}})"));
 
-    "test14I" >:: (fun _ -> assert_equal (UpdateColResponse(true, "Success!"))
+  "test14I" >:: (fun _ -> assert_equal (UpdateColResponse(true, "Success!"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.createIndex({b:1})"; parse "test.c.find({b: 2})";
       parse "test.c.update({a: 5} | {\"$set\": {b: 6}})"));
 
-   "test15" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
+  "test15" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {\"$set\": {b: 2}})";
@@ -199,26 +199,25 @@ let end_to_end_tests = [
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
       parse "test.c.find({b: 2})"));
 
-    "test16I" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
-    (clear_env(); parse "use test"; parse "test.createCollection(c)";
-      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.createIndex({b:1})"; parse "test.c.find({b: 2})";
-      parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; parse "test.c.find({b: 2})"));
+  "test16I" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
+  (clear_env(); parse "use test"; parse "test.createCollection(c)";
+    parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
+    parse "test.c.createIndex({b:1})"; parse "test.c.find({b: 2})";
+    parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; parse "test.c.find({b: 2})"));
 
+  "test16I_2" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
+  (clear_env(); parse "use test"; parse "test.createCollection(c)";
+    parse "test.c.insert({a: 1, b: 2})";   parse "test.c.createIndex({b:1})";
+   parse "test.c.insert({a: 5, b: 6})"; parse "test.c.find({b: 2})";
+    parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; parse "test.c.find({b: 2})"));
 
-    "test16I_2" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 }, { \"a\": 5, \"b\": 2 } ]"))
-    (clear_env(); parse "use test"; parse "test.createCollection(c)";
-      parse "test.c.insert({a: 1, b: 2})";   parse "test.c.createIndex({b:1})";
-     parse "test.c.insert({a: 5, b: 6})"; parse "test.c.find({b: 2})";
-      parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; parse "test.c.find({b: 2})"));
-
-    "test17" >:: (fun _ -> assert_equal (QueryResponse(true, "[]"))
+  "test17" >:: (fun _ -> assert_equal (QueryResponse(true, "[]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
       parse "test.c.find({b: {\"$gt\": 2}})"));
 
-   "test17I" >:: (fun _ -> assert_equal (QueryResponse(true, "[]"))
+  "test17I" >:: (fun _ -> assert_equal (QueryResponse(true, "[]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
@@ -229,7 +228,6 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
       parse "test.c.find({b: {\"$gte\": 2}})"));
-
 
   "test18I" >:: (fun _ -> assert_equal (QueryResponse(true, "[]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
@@ -255,12 +253,11 @@ let end_to_end_tests = [
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
       parse "test.c.find({a: {\"$lt\": 3}})"));
 
-    "test20I" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
+  "test20I" >:: (fun _ -> assert_equal (QueryResponse(true, "[ { \"a\": 1, \"b\": 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
       parse "test.c.find({a: {\"$lt\": 3}})"));
-
 
   "test21" >:: (fun _ -> assert_equal (ShowColResponse(true, "[ { \"a\": { \"b\": { \"c\": 2 } } }, { \"a\": 1, \"b\": 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
