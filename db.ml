@@ -601,11 +601,7 @@ let remove_and_get_doc db_name col_name query_doc =
  * Responsible for updating a document, given an update document
  *)
 let rec modify_doc doc update_doc =
-  let helper doc u_doc =
-    let (u_key, u_value) = match u_doc with
-      | `Assoc lst -> List.hd lst
-      | _ -> raise InvalidUpdateDocException
-    in
+  let helper doc (u_key, u_value) =
     let lst = match doc with
       | `Assoc lst -> lst
       | _ -> failwith "Should not be here"
@@ -624,7 +620,7 @@ let rec modify_doc doc update_doc =
     else `Assoc ((u_key, u_value)::lst)
   in
   match update_doc with
-  | `Assoc _ -> helper doc update_doc
+  | `Assoc pairs -> List.fold_left (fun acc pair -> helper acc pair) doc pairs
   | _ -> raise InvalidUpdateDocException
 
 (**

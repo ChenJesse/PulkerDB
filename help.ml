@@ -38,8 +38,9 @@ let query_doc_msg =
 
 let update_doc_msg = 
   "An update document. 
-    A general document of the form {$set: {a, b}}, where is the field that you wish to update, and b is any general document. 
-    Example: {$set: {a: 100}}."
+    A general document of the form {$set: {a}}, where \"a\" is the field(s) that you wish to update.
+    Example: {$set: {a: 100, b: 200}} will set fields \"a\" to 100 and \"b\" to 200. If either fields
+    do not exist, the attribute will be created.
 
 let agg_doc_msg = 
   "An aggregation document. 
