@@ -432,6 +432,13 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 3})"; parse "test.c.createIndex({a:1})";
        parse "test.c.update({a: 1}|{\"$set\": {a: 2}})";
        parse "test.c.remove({a: 1})"; parse "test.c.getindex({a: 2})"));
+ "test36Replace1" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 1234}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
+      parse "test.c.insert({a: 1, b: 3})"; parse "test.c.createIndex({a:1})";
+      parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
+      parse "test.c.replace({a: 1}| {a: 1234})";
+      parse "test.c.getindex({a:1234})"));
 ]
 
 let suite =
