@@ -123,49 +123,49 @@ let insert_up node parent = match node with
  *   - [value] is a value of type 'value
  *   - [d] is a valid tree
  *)
-let rec insert_down key value d replace remove_check= match d with
+let rec insert_down key value d replace = match d with
   | Leaf -> insert_up (Kicked((key, [value]), Leaf, Leaf)) d
   | TwoNode((k,v), l, r) ->
     if key < k then
-      let new_l = (insert_down key value l replace remove_check) in
+      let new_l = (insert_down key value l replace) in
       match new_l with
       | Done x -> Done(TwoNode((k, v), x, r))
       | Kicked(_,_,_) -> insert_up new_l d
     else if key > k then
-      let new_r = (insert_down key value r replace remove_check) in
+      let new_r = (insert_down key value r replace) in
       match new_r with
       | Done x -> Done(TwoNode((k, v), l, x))
       | Kicked(_,_,_) -> insert_up new_r d
     else
-      if ( remove_check || (replace))
+      if (replace)
       then Done(TwoNode((k, [value]@[]), l, r))
       else Done(TwoNode((k, [value]@v), l, r))
   | ThreeNode((k1,v1), (k2,v2), l, m, r) ->
     if key < k1 then
-      let new_l = (insert_down key value l replace remove_check) in
+      let new_l = (insert_down key value l replace) in
       match new_l with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), x, m, r))
       | Kicked(_,_,_) -> insert_up new_l d
     else if key < k2 then
-      let new_m = (insert_down key value m replace remove_check) in
+      let new_m = (insert_down key value m replace) in
       match new_m with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, x, r))
       | Kicked(_,_,_) -> insert_up new_m d
     else if key > k2 then
-      let new_r = (insert_down key value r replace remove_check) in
+      let new_r = (insert_down key value r replace) in
       match new_r with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, m, x))
       | Kicked(_,_,_) -> insert_up new_r d
     else if key = k1 then
-     if ( remove_check || replace )
+     if ( replace )
     then Done(ThreeNode((k1,[value]@[]), (k2,v2), l, m, r))
     else  Done(ThreeNode((k1,[value]@v1), (k2,v2), l, m, r))
     else
-      if ((remove_check) || (replace))
+      if (replace)
       then Done(ThreeNode((k1,v1), (k2,[value]@[]), l, m, r))
       else Done(ThreeNode((k1,v1), (k2,[value]@v2), l, m, r))
 
-let insert key value d r_check = match insert_down key value d false r_check with
+let insert key value d r_check = match insert_down key value d r_check with
   | Done x -> x
   | _ -> failwith "Something went horribly wrong while inserting"
 
@@ -241,10 +241,7 @@ let rec get_range d highval lowval = match d with
         else []
       else []
 
-  let replace (k:key) value1 d r_check =
-  match insert_down k value1 d r_check false with
-  | Done x -> x
-  | _ -> failwith "Something went horribly wrong while inserting"
+
 
 (*
          | 0,_,_, 0 -> find_docs m  highval lowval

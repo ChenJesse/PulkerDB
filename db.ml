@@ -592,25 +592,25 @@ match index_list with
     let doc_list = Tree.find index_val !tree in
     let new_doc_list = List.filter (fun f-> f <> doc) doc_list in
     if(List.length new_doc_list = 0)
-    then tree:= Tree.replace index_val `Null !tree true
+    then tree:= Tree.insert index_val `Null !tree true
     else if (List.length new_doc_list = 1)
-    then tree:= Tree.replace index_val (List.nth new_doc_list 0) !tree true
+    then tree:= Tree.insert index_val (List.nth new_doc_list 0) !tree true
     else
       let zerothdoc = List.nth new_doc_list 0 in
       let nonzerodocs = List.filter (fun f-> f <> zerothdoc) new_doc_list in
-      tree:= Tree.replace index_val zerothdoc !tree true;
+      tree:= Tree.insert index_val zerothdoc !tree true;
       List.iter (fun ele -> tree := Tree.insert index_val ele !tree false) nonzerodocs
   else
     if(Tree.member index_val !tree)
     then (
       let new_doc_list = List.filter (fun f-> f<> doc ) (Tree.find index_val !tree) in
       if(List.length new_doc_list = 0)
-      then tree:= Tree.replace index_val (`Int 0) !tree true
+      then tree:= Tree.insert index_val (`Int 0) !tree true
       else
       (
         let zerothdoc = List.nth new_doc_list 0 in
         let nonzerodocs = List.filter (fun f-> f <> zerothdoc) new_doc_list in
-        tree:= Tree.replace index_val zerothdoc !tree true;
+        tree:= Tree.insert index_val zerothdoc !tree true;
         List.iter (fun ele -> tree := Tree.insert index_val ele !tree false) nonzerodocs
       )
          )
