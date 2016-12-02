@@ -87,26 +87,31 @@ let () = Hashtbl.add test_env3 "test_db3" test_db3
 let persist_tests = [
   "writes env to disc and reads from it" >:: (fun _ ->
     Persist.write_env test_env;
-    assert (Sys.is_directory "test_db");
+    assert (Sys.is_directory "Persist");
+    assert (Sys.is_directory "Persist/test_db");
     Persist.read_db "test_db" empty_db;
     assert_equal (Hashtbl.find (fst empty_db) "test_col") ([`Assoc([("key", `String("value"))])], []);
-    Sys.remove "test_db/test_col.json";
-    Unix.rmdir "test_db";
+    Sys.remove "Persist/test_db/test_col.json";
+    Unix.rmdir "Persist/test_db";
+    Unix.rmdir "Persist"
   );
   "empty db" >:: (fun _ ->
     Persist.write_env (test_env2);
-    assert (Sys.is_directory "test_db2");
+    assert (Sys.is_directory "Persist");
+    assert (Sys.is_directory "Persist/test_db2");
     Persist.read_db "test_db2" empty_db2;
     assert_equal (Hashtbl.length (fst empty_db2)) 0;
-    Unix.rmdir "test_db2";
+    Unix.rmdir "Persist/test_db2";
+    Unix.rmdir "Persist"
   );
   "empty col" >:: (fun _ ->
     Persist.write_env (test_env3);
-    assert (Sys.is_directory "test_db3");
+    assert (Sys.is_directory "Persist/test_db3");
     Persist.read_db "test_db3" empty_db3;
     assert_equal (Hashtbl.find (fst empty_db3) "test_col3") ([],[]);
-    Sys.remove "test_db3/test_col3.json";
-    Unix.rmdir "test_db3"
+    Sys.remove "Persist/test_db3/test_col3.json";
+    Unix.rmdir "Persist/test_db3";
+    Unix.rmdir "Persist"
   )
 ]
 

@@ -59,27 +59,34 @@ let rec list_to_doc (doc_list : doc list) (acc:doc list) : doc =
 
 let remove_db db_name =
   try (
-    let rm filename = Unix.unlink (db_name ^ "/" ^ filename) in
-    traverse_dir rm db_name);
-    Unix.rmdir db_name
+    let rm filename = Unix.unlink ("Persist/" ^ db_name ^ "/" ^ filename) in
+    traverse_dir rm ("Persist/" ^ db_name);
+    Unix.rmdir ("Persist" ^ db_name))
   with
   | _ -> raise NotInDisc
 
 let write_collection db_name col_name doc_list =
   let docs = list_to_doc doc_list [] in
   let docs_json = `Assoc([("entries", docs)]) in
-  let filepath = db_name ^ "/" ^ col_name ^ ".json" in
+  let filepath = "Persist/" ^ db_name ^ "/" ^ col_name ^ ".json" in
   Yojson.Basic.to_file filepath docs_json
 
 let write_db db_name db =
   let (col_hashtbl, dirty) = db in
+  Unix.chdir "Persist";
   Unix.mkdir db_name 0o777;
+  Unix.chdir "..";
   let helper col_name col =
     write_collection db_name col_name ((fst)col)
   in
   Hashtbl.iter helper col_hashtbl
 
+let create_persist_dir () =
+  try Unix.mkdir "Persist" 0o777 with
+  | _ -> ()
+
 let write_env (env : catalog) =
+  create_persist_dir ();
   let helper db_name db =
     let (_, dirty) = db in
     try (
@@ -104,7 +111,7 @@ let strip filename =
   String.sub filename 0 (len-5)
 
 let read_collection db_name col_name =
-  let path = db_name ^ "/" ^ col_name ^ ".json" in
+  let path = "Persist/" ^ db_name ^ "/" ^ col_name ^ ".json" in
   let doc_list = path |> Yojson.Basic.from_file
     |> Yojson.Basic.Util.member "entries"  |> get_docs in
   (doc_list, [])
@@ -117,6 +124,6 @@ let read_db db_name db =
       let new_col = read_collection db_name col_name in
       Hashtbl.add col_hashtbl col_name new_col
     in
-    traverse_dir col_from_disc db_name
+    traverse_dir col_from_disc ("Persist/" ^ db_name);
   with
     | Unix.Unix_error _ -> raise NotInDisc
