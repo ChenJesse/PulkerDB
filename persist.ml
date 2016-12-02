@@ -86,7 +86,6 @@ let create_persist_dir () =
   | _ -> ()
 
 let write_env (env : catalog) =
-  create_persist_dir ();
   let helper db_name db =
     let (_, dirty) = db in
     try (
@@ -96,7 +95,9 @@ let write_env (env : catalog) =
         write_db db_name db))
     with
       | NotInDisc -> write_db db_name db
-  in Hashtbl.iter helper env
+  in
+  create_persist_dir ();
+  Hashtbl.iter helper env
 
 let get_docs json = match json with
   | `List x ->

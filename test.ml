@@ -93,7 +93,6 @@ let persist_tests = [
     assert_equal (Hashtbl.find (fst empty_db) "test_col") ([`Assoc([("key", `String("value"))])], []);
     Sys.remove "Persist/test_db/test_col.json";
     Unix.rmdir "Persist/test_db";
-    Unix.rmdir "Persist"
   );
   "empty db" >:: (fun _ ->
     Persist.write_env (test_env2);
@@ -102,7 +101,6 @@ let persist_tests = [
     Persist.read_db "test_db2" empty_db2;
     assert_equal (Hashtbl.length (fst empty_db2)) 0;
     Unix.rmdir "Persist/test_db2";
-    Unix.rmdir "Persist"
   );
   "empty col" >:: (fun _ ->
     Persist.write_env (test_env3);
