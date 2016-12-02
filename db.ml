@@ -125,7 +125,8 @@ let rec index_updater ogDoc doc col = match doc with
   |_ -> ()
 
 (**
- * Returns the tree associated with the specified index in the index desired. Returns empty if no index can be found.
+ * Returns the tree associated with the specified index in the index desired.
+ * Returns empty if no index can be found.
  *)
 let rec get_index index_name index =
   match index with
@@ -133,7 +134,10 @@ let rec get_index index_name index =
   | { id_name = a; id_table =_; keys= c }::tl ->
     if a = index_name then !c else get_index index_name tl
 
-
+(**
+ * Returns the values associated with the specified key in the desired index
+ * Returns empty list if nothing can be found.
+ *)
 let  get_values value index_tree =
 let tree_as_list = Tree.to_list index_tree in
 let rec helper tree_list value =
@@ -425,6 +429,9 @@ let create_index db_name col_name index_name query_doc =
     (fst col, update::(snd col)) |> Hashtbl.replace (fst db) col_name;
     Success "Index was successfully made!"
 
+(**
+ * Given a remove operation, updates the index tree to reflect new state.
+ *)
 let rec recreate_index db_name col_name index_list new_list=
   match index_list with
   |[]-> new_list
