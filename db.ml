@@ -81,7 +81,7 @@ let create_db db_name =
       Success "Database loaded into memory!"
     ) with
     | NotInDisc ->
-      add_db_env db_name (Hashtbl.create 100, false);
+      add_db_env db_name (Hashtbl.create 100, true);
       Success "Database created successfully!"
     | _ -> Failure unexpected_error
 
@@ -319,35 +319,24 @@ let check_doc doc query_doc =
   | _ -> raise InvalidQueryDocException
 
 (**
- * Checks if there are any indices that match the current queries field.
- * IF there are, we want to get teh docs associated with this query from the index
- * And return those after converting to a normal doc list.
- * Otherwise, continue and ultimately just
- * return whatever the collection's list of docs are if no index can be matched
- *)
-let rec index_checker col query_list =
-  (* match query_list with
-  | [] -> fst col
-  | h::t ->
-    let index_list = snd col in
-    let index = get_index (fst h) index_list in
-    if index <> Tree.empty then
-      index_query_builder index (`Assoc [h])
-    else
-      index_checker col t *)
-  let ctr = ref(0) in
-  let index_list = (snd) col in
-  let docs = ref([]) in
-  let break_condition = ref(false) in
-  while (!break_condition = false & !ctr < List.length query_list)
-  do (
-    let index = get_index (fst (List.nth query_list !ctr)) index_list in
-    if index <> Tree.empty then (
-      docs := index_query_builder index (`Assoc [List.nth query_list !ctr]);
-      break_condition := true;
-    ) else ctr := !ctr + 1
-  ) done;
-  if !docs = [] then (docs := (fst col); !docs) else !docs
+* Checks if there are any indices that match the current queries field.
+* IF there are, we want to get teh docs associated with this query from the index
+* And return those after converting to a normal doc list.
+* Otherwise, continue and ultimately just
+* return whatever the collection's list of docs are if no index can be matched
+*)
+let index_checker col query_list =
+  let rec helper col query_list docs =
+    match query_list with
+    | [] -> if docs = [] then (fst col) else docs
+    | h::t ->
+      let index_list = snd col in
+      let index = get_index (fst h) index_list in
+      if index <> Tree.empty then
+        helper col t (index_query_builder index (`Assoc [h]))
+      else
+        helper col t docs
+  in helper col query_list []
 
 (**
  * Given a string representing a query JSON, looks for matching docs in
@@ -385,8 +374,6 @@ let key_set tbl =
   let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
   let final_list = extract_keys list_tbl [] in
   Array.of_list final_list
-
-
 
 (**
  * Given the database, collection, desired index_name and querydoc, creates a index
