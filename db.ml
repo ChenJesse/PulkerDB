@@ -583,6 +583,9 @@ let drop_col db_name col_name =
   ) with
   | _ -> Failure unexpected_error
 
+(**
+ * Replaces the value list associated with the key of this doc.
+ *)
 let rec replace_tree  index_list doc =
 match index_list with
 |[]-> ()
@@ -635,9 +638,6 @@ let remove_doc db_name col_name query_doc =
     Hashtbl.replace (fst db) col_name (new_col, (snd) col);
     set_dirty db_name;
     Success "Removed document successfully!"
-
-
-
   ) with
   | LocateDBException -> Failure (db_find_error db_name)
   | LocateColException -> Failure (col_find_error col_name)
