@@ -125,6 +125,18 @@ let rec index_updater ogDoc doc col = match doc with
   |_ -> ()
 
 (**
+  *
+  *
+  *)
+let benchmarkJSONGen len (lst:doc list) =
+    let rec helper lent lst_p ctr =
+    if ((List.length lst_p) > lent) then lst_p
+    else
+      let (new_doc:doc) = (`Assoc[("a",`Int ctr);("b", `Int (ctr*2))]) in
+      helper lent (new_doc::lst_p) (ctr+1)
+    in helper len lst 0
+
+(**
  * Returns the tree associated with the specified index in the index desired.
  * Returns empty if no index can be found.
  *)
@@ -134,6 +146,10 @@ let rec get_index index_name index =
   | { id_name = a; id_table =_; keys= c }::tl ->
     if a = index_name then !c else get_index index_name tl
 
+ (**
+  * Run through the tree you were provided and return
+  * value list for the key that matches value.
+  *)
 let rec tree_helper tree_list value =
   match tree_list with
   |[] -> Failure (pretty_to_string (`List([])))
