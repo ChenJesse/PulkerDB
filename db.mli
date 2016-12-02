@@ -2,23 +2,7 @@ open Yojson.Basic
 open Persist
 open Tree
 
-type response =
-  | CreateDBResponse of bool * string
-  | CreateColResponse of bool * string
-  | CreateDocResponse of bool * string
-  | RemoveDocResponse of bool * string
-  | ReplaceDocResponse of bool * string
-  | DropDBResponse of bool * string
-  | DropColResponse of bool * string
-  | QueryResponse of bool * string
-  | ParseErrorResponse of bool * string
-  | ShowColResponse of bool * string
-  | UpdateColResponse of bool * string
-  | ShowDBResponse of bool * string
-  | ShowCatalogResponse of bool * string
-  | AggregateResponse of bool * string
-  | CreateIndexResponse of bool * string
-
+type response = Success of string | Failure of string
 
 val environment : catalog
 

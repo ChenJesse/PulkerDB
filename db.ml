@@ -2,22 +2,7 @@ open Yojson.Basic
 open Persist
 open Tree
 
-type response =
-  | CreateDBResponse of bool * string
-  | CreateColResponse of bool * string
-  | CreateDocResponse of bool * string
-  | RemoveDocResponse of bool * string
-  | ReplaceDocResponse of bool * string
-  | DropDBResponse of bool * string
-  | DropColResponse of bool * string
-  | QueryResponse of bool * string
-  | ParseErrorResponse of bool * string
-  | ShowColResponse of bool * string
-  | UpdateColResponse of bool * string
-  | ShowDBResponse of bool * string
-  | ShowCatalogResponse of bool * string
-  | AggregateResponse of bool * string
-  | CreateIndexResponse of bool * string
+type response = Success of string | Failure of string
 
 exception DropException
 exception LocateDBException
@@ -25,6 +10,7 @@ exception LocateColException
 exception InvalidUpdateDocException
 exception InvalidAggDocException
 exception InvalidQueryDocException
+exception KeyNotFoundException
 
 let unexpected_error = "Unexpected error"
 let db_find_error db_name = db_name ^ " was not found."
@@ -87,17 +73,17 @@ let key_sort arr = Array.sort compareJSON arr
  *)
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
-  | true -> CreateDBResponse(false, "Database with same name already exists")
+  | true -> Failure "Database with same name already exists"
   | false -> try (
       let (empty_db:db) = (Hashtbl.create 100, false) in
       read_db db_name empty_db;
       add_db_env db_name empty_db;
-      CreateDBResponse(true, "Success!")
+      Success "Database loaded into memory!"
     ) with
     | NotInDisc ->
       add_db_env db_name (Hashtbl.create 100, false);
-      CreateDBResponse(true, "Success!")
-    | _ -> CreateDBResponse(false, unexpected_error)
+      Success "Database created successfully!"
+    | _ -> Failure unexpected_error
 
 (**
 * Adds ogDoc to a index if one is found. Otherwise return nothing
@@ -112,11 +98,8 @@ let rec index_changer ogDoc doc col = match doc with
         do (
           let cur_index = List.nth id_list !ctr in
           if (cur_index.id_name) = k then (
-            print_endline "found a match and changing it";
             let tree = cur_index.keys in
-            print_endline (string_of_int (Tree.size !tree));
             tree := Tree.insert v ogDoc (!tree) ;
-            print_endline (string_of_int (Tree.size !tree));
             loop_condition = false;
             ctr := !ctr + 1
           ) else ctr := !ctr + 1
@@ -158,11 +141,12 @@ let create_doc db_name col_name doc =
     let new_col_index = (new_col, (snd) col) in
     Hashtbl.replace (fst db) col_name new_col_index;
     set_dirty db_name;
-    CreateDocResponse(true, "Success!")
+    Success "Document created successfully!"
   ) with
-  | LocateDBException -> CreateDocResponse(false, db_find_error db_name)
-  | LocateColException -> CreateDocResponse(false, col_find_error col_name)
-  | _ -> CreateDocResponse(false, unexpected_error)
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
+  | _ -> Failure unexpected_error
+
 
 (**
  * Given a string representing name of col, creates a col in the environment.
@@ -172,13 +156,13 @@ let create_col db_name col_name =
   try (
     let db = get_db db_name in
     match (Hashtbl.mem (fst db) col_name) with
-    | true -> CreateColResponse(false, (col_name ^ " already exists."))
+    | true -> Failure (col_name ^ " already exists.")
     | false ->
         Hashtbl.add (fst db) col_name ([],[]);
-        CreateColResponse(true, "Success!")
+        Success "Collection created successfully!"
   ) with
-  | LocateDBException -> ShowColResponse(false, db_find_error db_name)
-  | _ -> CreateColResponse(false, unexpected_error)
+  | LocateDBException -> Failure (db_find_error db_name)
+  | _ -> Failure unexpected_error
 
 (* -------------------------------QUERYING-------------------------------- *)
 (* Returns true if the doc is a nested json*)
@@ -212,6 +196,7 @@ let unwrap_op op =
   | GreaterEq -> (>=)
   | NotEq -> (<>)
   | Eq -> (=)
+  | _ -> failwith "Shouldn't be here"
 
 let compare_int op (doc1 : doc) (doc2 : doc) converter =
   match converter with
@@ -232,6 +217,22 @@ let compare_string op (doc1 : doc) (doc2 : doc) converter =
   match converter with
   | ToString x -> (unwrap_op op) (x doc1) (x doc2)
   | _ -> failwith "Incorrect converter"
+
+let compare op item1 item2 =
+  match (get_converter item1 item2) with
+  | ToInt x -> compare_int op item1 item2 (ToInt(x))
+  | ToBool x -> compare_bool op item1 item2 (ToBool(x))
+  | ToString x -> compare_string op item1 item2 (ToString(x))
+  | ToFloat x -> compare_float op item1 item2 (ToFloat(x))
+
+let parse_op str = match str with
+  | "$lt" -> Some Less
+  | "$lte" -> Some LessEq
+  | "$gt" -> Some Greater
+  | "$gte" -> Some GreaterEq
+  | "$ne" -> Some NotEq
+  | "$exists" -> Some Exists
+  | _ -> None
 
 (**
  * query_doc is guaranteed to have the field this index tree is built on.
@@ -256,9 +257,10 @@ let index_query_builder col_tree query_doc =
       | Some LessEq ->
         (get_range col_tree (snd h) `Null) @ (find (snd h) col_tree)
       | Some GreaterEq ->
-        (get_range col_tree (snd h) max_temp) @ (find (snd h) col_tree)
+        (get_range col_tree max_temp (snd h)) @ (find (snd h) col_tree)
       | Some NotEq ->
         (get_range col_tree (snd h) `Null) @ (get_range col_tree max_temp (snd h))
+      | Some Exists -> get_range col_tree max_temp `Null
       | None -> match (nested_json (snd h)) with
         | true -> (
           (* We have a doc as the value, need to recurse *)
@@ -281,27 +283,18 @@ let check_doc doc query_doc =
   | (false, _) -> false
   | (_, []) -> acc
   | (_, h::t) ->
-    let comparator = match (fst h) with
-      | "$lt" -> Some Less
-      | "$lte" -> Some LessEq
-      | "$gt" -> Some Greater
-      | "$gte" -> Some GreaterEq
-      | "$ne" -> Some NotEq
-      | "$exists" -> Some Exists
-      | _ -> None
+    let comparator = parse_op (fst h)
     in
     match comparator with
-    | Some Exists -> print_endline "came into this"; let doc1= Util.member p_key doc in let doc2 = (snd) h in
-      (doc1 <> `Null && doc2 =`Bool true) || (doc1 = `Null && doc2 = `Bool false)
-    | Some c ->
+    | Some Exists ->
       let doc1 = Util.member p_key doc in
       let doc2 = snd h in
-      (try ((match (get_converter doc1 doc2) with
-        | ToInt x -> compare_int c doc1 doc2 (ToInt(x))
-        | ToBool x -> compare_bool c doc1 doc2 (ToBool(x))
-        | ToString x -> compare_string c doc1 doc2 (ToString(x))
-        | ToFloat x -> compare_float c doc1 doc2 (ToFloat(x))
-      )) with | _ -> false)
+      (doc1 <> `Null && doc2 = `Bool true) || (doc1 = `Null && doc2 = `Bool false)
+    | Some op ->
+      let item1 = Util.member p_key doc in
+      let item2 = snd h in
+      (try (compare op item1 item2)
+      with | _ -> false)
     | None -> (match (nested_json (snd h)) with
       | true -> (* We have a doc as the value, need to recurse *)
         (* Represents the nested doc in the query_doc *)
@@ -315,17 +308,10 @@ let check_doc doc query_doc =
         else (try (helper (Util.member (fst h) doc) nested (fst h) true
               |> helper doc t p_key) with | _ -> false)
       | false -> (* We have a simple equality check *)
-        let doc1 = Util.member (fst h) doc in
-        let doc2 = snd h in
-        (try (
-          let outcome = (match (get_converter doc1 doc2) with
-            | ToInt x -> compare_int Eq doc1 doc2 (ToInt(x))
-            | ToBool x -> compare_bool Eq doc1 doc2 (ToBool(x))
-            | ToString x -> compare_string Eq doc1 doc2 (ToString(x))
-            | ToFloat x -> compare_float Eq doc1 doc2 (ToFloat(x)))
-          in
-          helper doc t p_key outcome
-        ) with | _ -> false)
+        let item1 = Util.member (fst h) doc in
+        let item2 = snd h in
+        (try (compare Eq item1 item2 |> helper doc t p_key)
+        with | _ -> false)
       )
   in
   match query_doc with
@@ -349,7 +335,6 @@ let rec index_checker col query_list =
       index_query_builder index (`Assoc [h])
     else
       index_checker col t *)
-
   let ctr = ref(0) in
   let index_list = (snd) col in
   let docs = ref([]) in
@@ -362,7 +347,7 @@ let rec index_checker col query_list =
       break_condition := true;
     ) else ctr := !ctr + 1
   ) done;
-  if !docs = [] then (docs := (fst col);print_endline "test"; !docs) else !docs
+  if !docs = [] then (docs := (fst col); !docs) else !docs
 
 (**
  * Given a string representing a query JSON, looks for matching docs in
@@ -376,12 +361,12 @@ let query_col db_name col_name query_doc =
     let documents = index_checker col lst_queries in
     let query_result = List.filter (fun d -> check_doc d query_doc) documents in
     let query_string = `List(query_result) |> pretty_to_string in
-    QueryResponse(true, query_string)
+    Success query_string
   ) with
-  | InvalidQueryDocException -> ShowColResponse(false, "Invalid query doc. Refer to -query_doc for more information.")
-  | LocateDBException -> ShowColResponse(false, db_find_error db_name)
-  | LocateColException -> ShowColResponse(false, col_find_error col_name)
-  | _ -> QueryResponse(false, unexpected_error)
+  | InvalidQueryDocException -> Failure "Invalid query doc. Refer to -query_doc for more information."
+  | LocateDBException -> Failure(db_find_error db_name)
+  | LocateColException -> Failure(col_find_error col_name)
+  | _ -> Failure unexpected_error
 
 (**
  * Extract all the keys associated with this List, removing duplicates as we go.
@@ -401,6 +386,8 @@ let key_set tbl =
   let final_list = extract_keys list_tbl [] in
   Array.of_list final_list
 
+
+
 (**
  * Given the database, collection, desired index_name and querydoc, creates a index
  *)
@@ -409,7 +396,7 @@ let create_index db_name col_name index_name query_doc =
   let col = db |> get_col col_name in
   let query_result = List.filter (fun d -> check_doc d query_doc) (fst col) in
   match List.length query_result with
-  | 0 -> CreateIndexResponse(false, "no docs matched the desired field")
+  | 0 -> Failure "no docs matched the desired field"
   | _ ->
     let table = Hashtbl.create 5 in
     let keys_array =
@@ -423,8 +410,17 @@ let create_index db_name col_name index_name query_doc =
       List.iter (fun ele -> tree := Tree.insert key ele !tree) table_list
     );
     (fst col, update::(snd col)) |> Hashtbl.replace (fst db) col_name;
-    CreateIndexResponse(true, "Index was successfully made!")
+    Success "Index was successfully made!"
 
+let rec recreate_index db_name col_name index_list new_list=
+  match index_list with
+  |[]-> new_list
+  |{id_name= name; id_table= idtable; keys= tree}::tl->
+      let query_doc = `Assoc [(name, `Assoc[("$exists", `Bool true)])] in
+      create_index db_name col_name name query_doc;
+      let new_index_list = (snd) (db_name |> get_db |> get_col col_name) in
+      let newTree = get_index name new_index_list in
+      {id_name = name; id_table = idtable; keys = ref(newTree)}::new_list
 (**
  * Given a string representing name of col, shows a col in the environment.
  * On failure, return false. On success, return true.
@@ -433,29 +429,29 @@ let show_col db_name col_name =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
     let contents = `List((fst)col) |> pretty_to_string in
-    ShowColResponse(true, contents)
+    Success contents
   ) with
-  | LocateDBException -> ShowColResponse(false, db_find_error db_name)
-  | LocateColException -> ShowColResponse(false, col_find_error col_name)
-  | _ -> ShowColResponse(false, unexpected_error)
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
+  | _ -> Failure unexpected_error
 
 let show_db db_name =
   try (
     let db_hashtbl = db_name |> get_db |> fst in
     let contents_list = Hashtbl.fold (fun k _ init -> k::init) db_hashtbl [] in
     let contents = stringify_list contents_list in
-    ShowDBResponse(true, contents)
+    Success contents
   ) with
-  | LocateDBException -> ShowDBResponse(false, db_find_error db_name)
-  | _ -> ShowDBResponse(false, unexpected_error)
+  | LocateDBException -> Failure (db_find_error db_name)
+  | _ -> Failure unexpected_error
 
 let show_catalog () =
   try (
     let contents_list = Hashtbl.fold (fun k _ init -> k::init) environment [] in
     let contents = stringify_list contents_list in
-    ShowCatalogResponse(true, contents)
+    Success contents
   ) with
-  | _ -> ShowCatalogResponse(false, unexpected_error)
+  | _ -> Failure unexpected_error
 
 (* -------------------------------AGGREGATION--------------------------------- *)
 
@@ -469,7 +465,7 @@ let bucketize db_name col_name attr =
       Hashtbl.replace buckets value (doc::bucket)
     else
       Hashtbl.add buckets value [doc]
-  ) ((fst)col);
+  ) (fst col);
   buckets
 
 let aggregator_attr bucket op t_field =
@@ -521,12 +517,12 @@ let aggregate db_name col_name agg_doc =
       let filtered = List.filter (fun pair -> (fst pair) <> "_id") lst in
       aggregation_helper acc filtered buckets;
       let agg_string = `List(!acc) |> pretty_to_string in
-      AggregateResponse(true, agg_string)
-    | _ -> AggregateResponse(false, "Error with aggregating response. Refer to -agg_doc for more information.")
+      Success agg_string
+    | _ -> Failure "Error with aggregating response. Refer to -agg_doc for more information."
   ) with
-  | LocateDBException -> AggregateResponse(false, db_find_error db_name)
-  | LocateColException -> AggregateResponse(false, col_find_error col_name)
-  | _ -> AggregateResponse(false, "Error with aggregating response. Refer to -agg_doc for more information.")
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
+  | _ -> Failure "Error with aggregating response. Refer to -agg_doc for more information."
 
 (* -------------------------------REMOVING--------------------------------- *)
 
@@ -540,14 +536,14 @@ let drop_db db_name =
     if db_exists then (
       Hashtbl.remove environment db_name;
       remove_db db_name;
-      DropDBResponse(true, "Success!")
+      Success "Dropped database successfully!"
     ) else (
       raise DropException
     )
   ) with
-  | NotInDisc -> DropDBResponse(true, "Success!")
-  | DropException -> DropDBResponse(false, db_find_error db_name)
-  | _ -> DropDBResponse(false, unexpected_error)
+  | NotInDisc -> Success "Dropped database successfully!"
+  | DropException -> Failure (db_find_error db_name)
+  | _ -> Failure unexpected_error
 
 (**
  * Given a string representing name of col, drops a col in the environment.
@@ -560,11 +556,11 @@ let drop_col db_name col_name =
     if col_exists then (
       Hashtbl.remove db_hashtbl col_name;
       set_dirty db_name;
-      DropColResponse(true, "Success!")
+      Success "Dropped collection successfully!"
     ) else
-      DropColResponse(false, col_find_error col_name)
+      Failure (col_find_error col_name)
   ) with
-  | _ -> DropColResponse(false, unexpected_error)
+  | _ -> Failure unexpected_error
 
 (**
  * Given a doc representing criteria to query on, removes all
@@ -578,11 +574,11 @@ let remove_doc db_name col_name query_doc =
     let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
     Hashtbl.replace (fst db) col_name (new_col,[]);
     set_dirty db_name;
-    RemoveDocResponse(true, "Success!")
+    Success "Removed document successfully!"
   ) with
-  | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
-  | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
-  | _ -> RemoveDocResponse(false, "Error with removing documents. Refer to -query_doc for more information.")
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
+  | _ -> Failure "Error with removing documents. Refer to -query_doc for more information."
 
 (* -------------------------------UPDATING/REPLACING--------------------------------- *)
 
@@ -594,9 +590,9 @@ let remove_and_get_doc db_name col_name query_doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
-    let query = List.filter (fun d -> check_doc d query_doc) ((fst)col) in
-    let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
-    Hashtbl.replace (fst db) col_name (new_col,[]);
+    let query = List.filter (fun d -> check_doc d query_doc) (fst col) in
+    let new_col = List.filter (fun d -> not (check_doc d query_doc)) (fst col) in
+    Hashtbl.replace (fst db) col_name (new_col, []);
     query
   ) with
   | _ -> []
@@ -605,28 +601,26 @@ let remove_and_get_doc db_name col_name query_doc =
  * Responsible for updating a document, given an update document
  *)
 let rec modify_doc doc update_doc =
-  let helper doc u_doc =
-    let (u_key, u_value) = match u_doc with
-      | `Assoc lst -> List.hd lst
-      | _ -> raise InvalidUpdateDocException
-    in
+  let helper doc (u_key, u_value) =
     let lst = match doc with
       | `Assoc lst -> lst
       | _ -> failwith "Should not be here"
     in
     (* Constructing the updated doc *)
-    `Assoc (
-      List.map (fun pair -> match (fst pair) = u_key with
-        | true -> (
-              match snd pair with
-              | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value)
-              | _ -> (fst pair, u_value)
-            )
-        | false -> pair) lst
-    )
+    if Util.member u_key doc <> `Null then
+      `Assoc (
+        (List.map (fun pair -> match (fst pair) = u_key with
+          | true -> (
+            match snd pair with
+            | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value)
+            | _ -> (fst pair, u_value)
+          )
+          | false -> pair) lst)
+      )
+    else `Assoc ((u_key, u_value)::lst)
   in
   match update_doc with
-  | `Assoc _ -> helper doc update_doc (* Should only have one assoc pair *)
+  | `Assoc pairs -> List.fold_left (fun acc pair -> helper acc pair) doc pairs
   | _ -> raise InvalidUpdateDocException
 
 (**
@@ -640,13 +634,15 @@ let replace_col db_name col_name query_doc update_doc =
     let col = get_col col_name db in
     let new_col = update_doc::((fst)col) in
     Hashtbl.replace (fst db) col_name (new_col,[]);
+    let new_index_list = recreate_index db_name col_name ((snd) col) [] in
+    Hashtbl.replace (fst db) col_name (new_col, new_index_list);
     set_dirty db_name;
-    ReplaceDocResponse(true, "Success!")
+    Success "Collection replaced successfully!"
   ) with
-  | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
-  | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
-  | _ -> ReplaceDocResponse(false, "Error with replacing doc. Ensure that the query document
-    is in the correct format. Refer to -query_doc for more information.")
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
+  | _ -> Failure "Error with replacing doc. Ensure that the query document
+    is in the correct format. Refer to -query_doc for more information."
 
 (**
  * Given a doc representing criteria to query on, updates all appropriate docs in the environment.
@@ -660,13 +656,15 @@ let update_col db_name col_name query_doc update_doc =
       | _ -> raise InvalidUpdateDocException in
     let query = remove_and_get_doc db_name col_name query_doc in
     let col = get_col col_name db in
-    let new_col = ((fst)col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
-    Hashtbl.replace (fst db) col_name (new_col,[]);
-    UpdateColResponse(true, "Success!")
+    let new_col = (fst col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
+    Hashtbl.replace (fst db) col_name (new_col,(snd) col);
+    let new_index_list = recreate_index db_name col_name (snd col) [] in
+    Hashtbl.replace (fst db) col_name (new_col, new_index_list);
+    Success "Collection updated successfully!"
   ) with
-  | LocateDBException -> RemoveDocResponse(false, db_find_error db_name)
-  | LocateColException -> RemoveDocResponse(false, col_find_error col_name)
-  | _ -> UpdateColResponse(false, "Error with updating collection.
-    Refer to -query_doc and -update_doc for more information.")
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
+  | _ -> Failure "Error with updating collection.
+    Refer to -query_doc and -update_doc for more information."
 
 let clear_env () = Hashtbl.reset environment

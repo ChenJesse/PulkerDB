@@ -222,11 +222,11 @@ let rec get_range d highval lowval = match d with
     else if highval <= k1 then
       get_range l highval lowval
     else if highval <= k2 then
-      (get_range l highval lowval) @ (get_range m highval lowval)
+      v1 @ (get_range l highval lowval) @ (get_range m highval lowval)
     else if lowval >= k1 then
-      (get_range m highval lowval) @ (get_range r highval lowval)
+      v2 @ (get_range m highval lowval) @ (get_range r highval lowval)
     else
-      (get_range l highval lowval) @ (get_range m highval lowval) @ (get_range r highval lowval)
+      v1 @ v2 @ (get_range l highval lowval) @ (get_range m highval lowval) @ (get_range r highval lowval)
 
 (* [remove_up node parent direction]
  * Pushes the given node into the parent, returning either
