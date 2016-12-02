@@ -134,18 +134,19 @@ let rec get_index index_name index =
   | { id_name = a; id_table =_; keys= c }::tl ->
     if a = index_name then !c else get_index index_name tl
 
+let rec tree_helper tree_list value =
+  match tree_list with
+  |[] -> Failure (pretty_to_string (`List([])))
+  |(k,v)::tl -> if(value = k) then Success (pretty_to_string (`List(v))) else tree_helper tl value
 (**
  * Returns the values associated with the specified key in the desired index
  * Returns empty list if nothing can be found.
  *)
-let  get_values value index_tree =
+let  get_values value index_name col_name db_name =
+let index_list = snd ((get_db db_name) |> get_col col_name) in
+let index_tree  = get_index index_name index_list in
 let tree_as_list = Tree.to_list index_tree in
-let rec helper tree_list value =
-  match tree_list with
-  |[] -> []
-  |(k,v)::tl -> if(value = k) then v else helper tl value
-in helper tree_as_list value
-
+  tree_helper tree_as_list value
 (**
  * Given a string representation of JSON, creates a doc in the environment.
  * On failure, return false. On success, return true.

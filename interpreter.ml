@@ -106,7 +106,7 @@ let parse input =
       | Triple (a, b, c) -> ( match b with
         | "show" -> if c = "" then show_db a else raise ParseError
         | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
-        | "createcollection" -> 
+        | "createcollection" ->
           if (validate_name c) then create_col a c
           else raise ImproperNameError
         | _ -> raise ParseError
@@ -131,6 +131,11 @@ let parse input =
         | "update" ->
           (let pair = tuplize_parameters d in
           update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
+        | "getindex" -> let e = parse_json d in
+                        match e with
+                        | `Assoc lst -> match lst with
+                          | ((f:string), (g: Yojson.Basic.json)) ::tl->
+                            (get_values g f b a)
         | _ -> raise ParseError
 
       )
