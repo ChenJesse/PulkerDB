@@ -1,3 +1,4 @@
+open Yojson.Basic
 type key = Yojson.Basic.json
 
 (* AF: The recursive tree
@@ -122,43 +123,49 @@ let insert_up node parent = match node with
  *   - [value] is a value of type 'value
  *   - [d] is a valid tree
  *)
-let rec insert_down key value d = match d with
+let rec insert_down key value d replace remove_check= match d with
   | Leaf -> insert_up (Kicked((key, [value]), Leaf, Leaf)) d
   | TwoNode((k,v), l, r) ->
     if key < k then
-      let new_l = (insert_down key value l) in
+      let new_l = (insert_down key value l replace remove_check) in
       match new_l with
       | Done x -> Done(TwoNode((k, v), x, r))
       | Kicked(_,_,_) -> insert_up new_l d
     else if key > k then
-      let new_r = (insert_down key value r) in
+      let new_r = (insert_down key value r replace remove_check) in
       match new_r with
       | Done x -> Done(TwoNode((k, v), l, x))
       | Kicked(_,_,_) -> insert_up new_r d
     else
-      Done(TwoNode((k, [value]@v), l, r))
+      if ( remove_check || (replace))
+      then Done(TwoNode((k, [value]@[]), l, r))
+      else Done(TwoNode((k, [value]@v), l, r))
   | ThreeNode((k1,v1), (k2,v2), l, m, r) ->
     if key < k1 then
-      let new_l = (insert_down key value l) in
+      let new_l = (insert_down key value l replace remove_check) in
       match new_l with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), x, m, r))
       | Kicked(_,_,_) -> insert_up new_l d
     else if key < k2 then
-      let new_m = (insert_down key value m) in
+      let new_m = (insert_down key value m replace remove_check) in
       match new_m with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, x, r))
       | Kicked(_,_,_) -> insert_up new_m d
     else if key > k2 then
-      let new_r = (insert_down key value r) in
+      let new_r = (insert_down key value r replace remove_check) in
       match new_r with
       | Done x -> Done(ThreeNode((k1,v1), (k2,v2), l, m, x))
       | Kicked(_,_,_) -> insert_up new_r d
     else if key = k1 then
-      Done(ThreeNode((k1,[value]@v1), (k2,v2), l, m, r))
+     if ( remove_check || replace )
+    then Done(ThreeNode((k1,[value]@[]), (k2,v2), l, m, r))
+    else  Done(ThreeNode((k1,[value]@v1), (k2,v2), l, m, r))
     else
-      Done(ThreeNode((k1,v1), (k2,[value]@v2), l, m, r))
+      if ((remove_check) || (replace))
+      then Done(ThreeNode((k1,v1), (k2,[value]@[]), l, m, r))
+      else Done(ThreeNode((k1,v1), (k2,[value]@v2), l, m, r))
 
-let insert key value d = match insert_down key value d with
+let insert key value d r_check = match insert_down key value d false r_check with
   | Done x -> x
   | _ -> failwith "Something went horribly wrong while inserting"
 
@@ -209,25 +216,45 @@ let rec get_range d highval lowval = match d with
   | Leaf -> []
   | TwoNode ((k, v), l, r) ->
     if k < highval && k > lowval then
-      v @ (get_range l highval lowval) @ (get_range r highval lowval)
+      if ((v = [`Null] & k <> `Null) || (v= [`Int 0] & k <> `Int 0))
+        then (get_range l highval lowval) @ (get_range r highval lowval)
+      else v @ (get_range l highval lowval) @ (get_range r highval lowval)
     else if k >= highval then
       get_range l highval lowval
     else
       get_range r highval lowval
   | ThreeNode ((k1, v1), (k2, v2), l, m, r) ->
-    if lowval >= k2 then
-      get_range r highval lowval
-    else if highval <= k2 && lowval >= k1 then
-      get_range m highval lowval
-    else if highval <= k1 then
-      get_range l highval lowval
-    else if highval <= k2 then
-      v1 @ (get_range l highval lowval) @ (get_range m highval lowval)
-    else if lowval >= k1 then
-      v2 @ (get_range m highval lowval) @ (get_range r highval lowval)
-    else
-      v1 @ v2 @ (get_range l highval lowval) @ (get_range m highval lowval) @ (get_range r highval lowval)
+     if (lowval < k1) then
+        if(lowval < k2 && k2 < highval && k1 < highval) then
+          if ( (v2 = [`Null] & k2 <> `Null) || (v2 = [`Int 0] & k2 <> `Int 0) )
+          then (get_range l  highval lowval)@(get_range m  highval lowval)@(get_range r  highval lowval)
+          else v2@(get_range l  highval lowval)@(get_range m  highval lowval)@(get_range r  highval lowval)
+        else if (k1 < highval && k2 >= highval ) then
+          if ( (v1 = [`Null] & k1 <> `Null) || (v1 = [`Int 0] & k1 <> `Int 0) )
+          then (get_range l  highval lowval)@(get_range m  highval lowval)
+          else v1@(get_range l  highval lowval)@(get_range m  highval lowval)
+        else if (k1 = highval) then get_range l highval lowval
+        else []
+      else if (lowval = k1) then
+        if(k2 = highval) then  get_range m highval lowval
+        else if (k2 < highval) then  (get_range m highval lowval)@(get_range r highval lowval)
+        else []
+      else []
 
+  let replace (k:key) value1 d r_check =
+  match insert_down k value1 d r_check false with
+  | Done x -> x
+  | _ -> failwith "Something went horribly wrong while inserting"
+
+(*
+         | 0,_,_, 0 -> find_docs m  highval lowval
+         | 0,0,_,_->[]
+         | 1, -1, 1, -1 -> v1@v2@(find_docs l  highval lowval)@(find_docs m  highval lowval)@(find_docs r  highval lowval)
+         | 1,0, _, _-> find_docs l  highval lowval
+         | 1,-1,1,0-> v1@(find_docs l  highval lowval)@(find_docs m  highval lowval)
+         | _,_,0,_-> (find_docs r  highval lowval)
+         | _ -> v1@v2@[]
+*)
 (* [remove_up node parent direction]
  * Pushes the given node into the parent, returning either
  * a new hole if the result does not satisfy the invariant, or an absorbed

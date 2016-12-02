@@ -99,7 +99,13 @@ let rec index_changer ogDoc doc col = match doc with
           let cur_index = List.nth id_list !ctr in
           if (cur_index.id_name) = k then (
             let tree = cur_index.keys in
-            tree := Tree.insert v ogDoc (!tree) ;
+            if(Tree.member v !tree)
+            then
+              if (((Tree.find v !tree) = [`Null] && v <>`Null) ||
+                 ((Tree.find v !tree) = [`Int 0] && v <> `Int 0) )
+              then tree:= Tree.insert v ogDoc (!tree) true
+              else tree:= Tree.insert v ogDoc (!tree) false
+            else tree := Tree.insert v ogDoc (!tree) false;
             loop_condition = false;
             ctr := !ctr + 1
           ) else ctr := !ctr + 1
@@ -126,6 +132,15 @@ let rec get_index index_name index =
   | [] -> Tree.empty
   | { id_name = a; id_table =_; keys= c }::tl ->
     if a = index_name then !c else get_index index_name tl
+
+
+let  get_values value index_tree =
+let tree_as_list = Tree.to_list index_tree in
+let rec helper tree_list value =
+  match tree_list with
+  |[] -> []
+  |(k,v)::tl -> if(value = k) then v else helper tl value
+in helper tree_as_list value
 
 (**
  * Given a string representation of JSON, creates a doc in the environment.
@@ -326,17 +341,28 @@ let check_doc doc query_doc =
 * return whatever the collection's list of docs are if no index can be matched
 *)
 let index_checker col query_list =
-  let rec helper col query_list docs =
-    match query_list with
-    | [] -> if docs = [] then (fst col) else docs
-    | h::t ->
-      let index_list = snd col in
-      let index = get_index (fst h) index_list in
-      if index <> Tree.empty then
-        helper col t (index_query_builder index (`Assoc [h]))
-      else
-        helper col t docs
-  in helper col query_list []
+  (* match query_list with
+  | [] -> fst col
+  | h::t ->
+    let index_list = snd col in
+    let index = get_index (fst h) index_list in
+    if index <> Tree.empty then
+      index_query_builder index (`Assoc [h])
+    else
+      index_checker col t *)
+  let ctr = ref(0) in
+  let index_list = (snd) col in
+  let docs = ref([]) in
+  let break_condition = ref(false) in
+  while (!break_condition = false & !ctr < List.length query_list)
+  do (
+    let index = get_index (fst (List.nth query_list !ctr)) index_list in
+    if index <> Tree.empty then (
+      docs := index_query_builder index (`Assoc [List.nth query_list !ctr]);
+      break_condition := true;
+    ) else ctr := !ctr + 1
+  ) done;
+  if !docs = [] then (docs := (fst col); !docs) else !docs
 
 (**
  * Given a string representing a query JSON, looks for matching docs in
@@ -394,7 +420,7 @@ let create_index db_name col_name index_name query_doc =
     key_sort keys_array;
     keys_array |> Array.to_list |> List.iter (fun key ->
       let table_list = Hashtbl.find_all table key in
-      List.iter (fun ele -> tree := Tree.insert key ele !tree) table_list
+      List.iter (fun ele -> tree := Tree.insert key ele !tree false) table_list
     );
     (fst col, update::(snd col)) |> Hashtbl.replace (fst db) col_name;
     Success "Index was successfully made!"
@@ -549,19 +575,61 @@ let drop_col db_name col_name =
   ) with
   | _ -> Failure unexpected_error
 
+let rec replace_tree  index_list doc =
+match index_list with
+|[]-> ()
+|{id_name=name; id_table=table; keys = tree}::tl->
+  let index_val = Util.member name doc in
+  if(index_val <> `Null) then
+    let doc_list = Tree.find index_val !tree in
+    let new_doc_list = List.filter (fun f-> f <> doc) doc_list in
+    if(List.length new_doc_list = 0)
+    then tree:= Tree.replace index_val `Null !tree true
+    else if (List.length new_doc_list = 1)
+    then tree:= Tree.replace index_val (List.nth new_doc_list 0) !tree true
+    else
+      let zerothdoc = List.nth new_doc_list 0 in
+      let nonzerodocs = List.filter (fun f-> f <> zerothdoc) new_doc_list in
+      tree:= Tree.replace index_val zerothdoc !tree true;
+      List.iter (fun ele -> tree := Tree.insert index_val ele !tree false) nonzerodocs
+  else
+    if(Tree.member index_val !tree)
+    then (
+      let new_doc_list = List.filter (fun f-> f<> doc ) (Tree.find index_val !tree) in
+      if(List.length new_doc_list = 0)
+      then tree:= Tree.replace index_val (`Int 0) !tree true
+      else
+      (
+        let zerothdoc = List.nth new_doc_list 0 in
+        let nonzerodocs = List.filter (fun f-> f <> zerothdoc) new_doc_list in
+        tree:= Tree.replace index_val zerothdoc !tree true;
+        List.iter (fun ele -> tree := Tree.insert index_val ele !tree false) nonzerodocs
+      )
+         )
+     else replace_tree tl doc
+
 (**
  * Given a doc representing criteria to query on, removes all
  * appropriate docs in the environment. On failure, return false.
  * On success, return true.
  *)
+
+
 let remove_doc db_name col_name query_doc =
   try (
     let db = db_name |> get_db in
     let col = get_col col_name db in
+    let index_list = (snd) col in
     let new_col = List.filter (fun d -> not (check_doc d query_doc)) ((fst)col) in
     Hashtbl.replace (fst db) col_name (new_col,[]);
+    let lost_docs = List.filter (fun d->  (check_doc d query_doc)) ((fst)col) in
+    List.iter (replace_tree index_list) lost_docs;
+    Hashtbl.replace (fst db) col_name (new_col, (snd) col);
     set_dirty db_name;
     Success "Removed document successfully!"
+
+
+
   ) with
   | LocateDBException -> Failure (db_find_error db_name)
   | LocateColException -> Failure (col_find_error col_name)
@@ -577,11 +645,14 @@ let remove_and_get_doc db_name col_name query_doc =
   try (
     let db = get_db db_name in
     let col = get_col col_name db in
+    let index_list = (snd) col in
     let query = List.filter (fun d -> check_doc d query_doc) (fst col) in
     let new_col = List.filter (fun d -> not (check_doc d query_doc)) (fst col) in
-    Hashtbl.replace (fst db) col_name (new_col, []);
+    Hashtbl.replace (fst db) col_name (new_col,[]);
+    List.iter (replace_tree index_list) query;
+    Hashtbl.replace (fst db) col_name (new_col, (snd) col);
     query
-  ) with
+       ) with
   | _ -> []
 
 (**
