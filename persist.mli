@@ -28,6 +28,10 @@ type catalog = (string, db) Hashtbl.t
 
 exception NotInDisc
 
+val output_name : int ref
+
+val write_query_json : string -> unit
+
 val remove_db: string -> unit
 
 (*

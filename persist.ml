@@ -29,6 +29,19 @@ type catalog = (string, db) Hashtbl.t
 
 exception NotInDisc
 
+let output_name = ref 0
+
+let create_dir name =
+  try Unix.mkdir name 0o777 with
+  | _ -> ()
+
+let write_query_json json =
+  create_dir "Output";
+  let filename = string_of_int (!output_name) in
+  let filepath = "Output/" ^ filename ^ ".json" in
+  Yojson.Basic.to_file filepath json
+
+
 (* [col filename] Given a filename, returns true if filename is a
  * collection ie ends with .json file extension
  * requires:
@@ -81,10 +94,6 @@ let write_db db_name db =
   in
   Hashtbl.iter helper col_hashtbl
 
-let create_persist_dir () =
-  try Unix.mkdir "Persist" 0o777 with
-  | _ -> ()
-
 let write_env (env : catalog) =
   let helper db_name db =
     let (_, dirty) = db in
@@ -96,7 +105,7 @@ let write_env (env : catalog) =
     with
       | NotInDisc -> write_db db_name db
   in
-  create_persist_dir ();
+  create_dir "Persist";
   Hashtbl.iter helper env
 
 let get_docs json = match json with
