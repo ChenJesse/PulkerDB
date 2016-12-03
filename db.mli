@@ -141,3 +141,8 @@ val aggregate: string -> string -> doc -> response
  * Test only method to reset the entire environment
  *)
 val clear_env : unit -> unit
+
+(**
+ * Persists environment
+ *)
+val save_env : unit -> response

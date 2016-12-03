@@ -13,6 +13,8 @@ let help_msg = "
 
                       DATABASE COMMANDS
 ---------------------------------------------------------------
+| show()                                                      |
+| save()                                                      |
 | use DATABASE_NAME                                           |
 | db.dropDatabase()                                           |
 | db.createCollection(COLLECTION_NAME)                        |

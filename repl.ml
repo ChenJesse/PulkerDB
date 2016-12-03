@@ -15,7 +15,7 @@ let print_info msg = ANSITerminal.(print_string [green] (spacing ^ msg ^ "\n"))
 let rec loop input = (
   match input with 
   | "-exit" -> ANSITerminal.(print_info exiting_msg);
-              Persist.write_env Db.environment; exit(0)
+              let _ = Db.save_env () in exit(0)
   | "-help" -> ANSITerminal.(print_info help_msg)
   | "-gen_doc" -> ANSITerminal.(print_info gen_doc_msg)
   | "-query_doc" -> ANSITerminal.(print_info query_doc_msg)

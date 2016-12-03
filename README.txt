@@ -20,9 +20,13 @@ FEATURE OVERVIEW
 | -agg_doc : Information on format for AGG_DOC                |
 | -index_doc : Information on format for INDEX_DOC            |
 | -indkey_doc : Information on format for INDKEY_DOC          |
+| -store : Information on the store flag                      |
 ---------------------------------------------------------------
+
                       DATABASE COMMANDS
 ---------------------------------------------------------------
+| show()                                                      |
+| save()                                                      |
 | use DATABASE_NAME                                           |
 | db.dropDatabase()                                           |
 | db.createCollection(COLLECTION_NAME)                        |
@@ -36,7 +40,7 @@ FEATURE OVERVIEW
 | db.COLLECTION_NAME.aggregate(AGG_DOC)                       |
 | db.COLLECTION_NAME.createIndex(INDEX_DOC)                   |
 | db.COLLECTION_NAME.getIndex(INDEX_DOC)                      |
----------------------------------------------------------------
+---------------------------------------------------------------"
 
 Most of the commands are heavily based around MongoDB. 
 Tutorial's can be found at https://www.tutorialspoint.com/mongodb/.

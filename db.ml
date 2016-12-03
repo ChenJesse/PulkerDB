@@ -91,6 +91,8 @@ let persist_query response = match response with
     Success ("Output stored at " ^ file ^ ".\n" ^ json_string)
   | Failure x -> Failure x
 
+let save_env () = write_env environment; Success "Saved successfully!"
+
 (* -------------------------------CREATION------------------------------- *)
 
 let new_dbs = ref []
