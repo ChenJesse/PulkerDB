@@ -15,11 +15,6 @@ exception ParseError
 exception ImproperNameError
 exception ParseDocError
 
-(**
- * given a valid string of a JSON, will output
- * corresponding doc with the appropriate structure
- *   - [json_string] is a string
- *)
 let parse_json json_string = try (from_string json_string) with 
   | _ -> raise ParseDocError
 
@@ -53,11 +48,6 @@ let handle_use_db input =
                else raise ImproperNameError
     | _ -> raise ParseError
 
-(**
- * Given an input, parses it into a tuple of 3 or 4 elements
- * based on certain delimiting characters
- *   - [input] is a sanitized input from parse
- *)
 let tuplize_input input =
   let rec helper acc i =
     match i with
@@ -156,11 +146,6 @@ let handle_quad a b c d i =
   | "getindex" -> get_index_helper a b c d
   | _ -> raise ParseError
 
-(**
- * Parses the input from the REPL, and calls the appropriate function, 
- * returning a response
- *   - [input] is a string
- *)
 let parse input =
   try (
     let i = sanitize_input input in

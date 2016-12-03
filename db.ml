@@ -84,12 +84,6 @@ let compare_docs a b =
 
 let key_sort arr = Array.sort compare_docs arr
 
-(**
- * Given a response with a query as the string, outputs the
- * doc into Output/x.json
- * requires:
- *   - [response] is a Success response with a stringified doc, or Failure
- *)
 let persist_query response = match response with
   | Success json_string ->
     let file = json_string |> from_string |> write_query_json in
@@ -105,6 +99,7 @@ let persist_query response = match response with
  * requires:
  *   - [db_name] is a string
  *)
+
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
   | true -> Failure "Database with same name already exists"
@@ -194,15 +189,6 @@ let get_values value index_name col_name db_name =
   let tree_as_list = Tree.to_list index_tree in
   tree_helper tree_as_list value
 
-(**
- * Given a doc, creates a doc in the environment.
- * Also checks all the existing indices on the collection, to see if they
- * need to be updated, and sets dirty bit of the database.
- * requires:
- *   - [db_name] is a string
- *   - [col_name] is a string
- *   - [doc] is a doc
- *)
 let create_doc db_name col_name doc =
   try (
     let db = get_db db_name in
@@ -219,13 +205,6 @@ let create_doc db_name col_name doc =
   | LocateColException -> Failure (col_find_error col_name)
   | _ -> Failure unexpected_error
 
-(**
- * Given a col_name, creates a collection in the specified db if
- * a collection with the same name does not already exist.
- * requires:
- *   - [db_name] is a string
- *   - [col_name] is a string
- *)
 let create_col db_name col_name =
   try (
     let db = get_db db_name in
@@ -366,12 +345,6 @@ let index_query_builder col_tree query_doc =
   | `Assoc lst -> helper col_tree lst
   | _ -> failwith "Invalid query JSON"
 
-(**
- * Given a query_doc and general doc, checks to see if the doc satisfies all
- * the requirements of the query_doc.
- *   - [doc] is a doc
- *   - [query_doc] is a doc, of structure defined in help.ml
- *)
 let check_doc doc query_doc =
   let rec helper doc query_doc p_key acc = match acc, query_doc with
   | (false, _) -> false
@@ -430,13 +403,6 @@ let index_checker col query_list =
   if !docs = [] then docs := (fst col);
   !docs
 
-(**
- * Given a string representing a query JSON, looks for matching docs in
- * the environment under the db and collection.
- *   - [db_name] is a string
- *   - [col_name] is a string
- *   - [query_doc] is a doc, of structure defined in help.ml
- *)
 let query_col db_name col_name query_doc =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
@@ -507,12 +473,6 @@ let rec recreate_index db_name col_name index_list new_list=
       let newTree = get_index name new_index_list in
       {id_name = name; id_table = idtable; keys = ref(newTree)}::new_list
 
-(**
- * Returns a response with the stringified doc of all documents in the
- * specified collection.
- *   - [db_name] is a string
- *   - [col_name] is a string
- *)
 let show_col db_name col_name =
   try (
     let col = db_name |> get_db |> get_col col_name in
@@ -523,10 +483,6 @@ let show_col db_name col_name =
   | LocateColException -> Failure (col_find_error col_name)
   | _ -> Failure unexpected_error
 
-(**
- * Returns a response with all the collections in the specified db.
- *   - [db_name] is a string
- *)
 let show_db db_name =
   try (
     let db_hashtbl = db_name |> get_db |> fst in
@@ -537,7 +493,6 @@ let show_db db_name =
   | LocateDBException -> Failure (db_find_error db_name)
   | _ -> Failure unexpected_error
 
-(* Prints out all the databases that are loaded into memory so far *)
 let show_catalog () =
   try (
     let contents_list = Hashtbl.fold (fun k _ init -> k::init) environment [] in
@@ -692,6 +647,7 @@ let drop_db db_name =
  *   - [db_name] is a string
  *   - [col_name] is a string
  *)
+
 let drop_col db_name col_name =
   try (
     let (db_hashtbl, _) = get_db db_name in
@@ -832,13 +788,6 @@ let replace_col db_name col_name query_doc update_doc =
   | _ -> Failure "Error with replacing doc. Ensure that the query document
     is in the correct format. Refer to -query_doc for more information."
 
-(**
- * Given a doc representing criteria to query on, updates all appropriate docs.
- *   - [db_name] is a string
- *   - [col_name] is a string
- *   - [query_doc] is a doc conforming to structure specified in help.ml
- *   - [update_doc] is a doc conforming to structure specified in help.ml
- *)
 let update_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in

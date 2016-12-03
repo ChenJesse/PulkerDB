@@ -12,12 +12,6 @@ let print_output msg =
 
 let print_info msg = ANSITerminal.(print_string [green] (spacing ^ msg ^ "\n"))
 
-(**
- * REPL interface. Parses for help keywords, and otherwise passes the input
- * to Interpreter.parse for further processing.
- * requires:
- *   - [input] is a string, from shell input
- *)
 let rec loop input = (
   match input with 
   | "-exit" -> Persist.write_env Db.environment; exit(0)

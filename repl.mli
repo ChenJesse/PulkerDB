@@ -3,9 +3,10 @@ open Interpreter
 val print_arrow: unit -> unit
 
 (**
- * serves as primary access point for users to
- * interact with the database. Can query, store, delete, and create
- * databases, collections, documents
+ * REPL interface. Parses for help keywords, and otherwise passes the input
+ * to Interpreter.parse for further processing.
+ * requires:
+ *   - [input] is a string, from shell input
  *)
 val loop : string -> unit
 
