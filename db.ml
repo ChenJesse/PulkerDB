@@ -69,7 +69,7 @@ let key_sort arr = Array.sort compareJSON arr
 
 let persist_query response = match response with
   | Success json_string ->
-    let file = json_string |> from_string |> write_query_json in 
+    let file = json_string |> from_string |> write_query_json in
     Success ("Output stored at " ^ file ^ ".\n" ^ json_string)
   | Failure x -> Failure x
 
@@ -135,6 +135,7 @@ let benchmarkJSONGen len (lst:doc list) =
     let new_doc = `Assoc[("a", `Int ctr); ("b", `Int (ctr * 2))] in
     helper lent (new_doc::lst_p) (ctr + 1)
   in helper len lst 0
+
 
 (**
  * Returns the tree associated with the specified index in the index desired.
