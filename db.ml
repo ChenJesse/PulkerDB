@@ -129,7 +129,7 @@ let rec index_updater ogDoc doc col = match doc with
  * Generate json with ascending values based on input len
  *)
 
-let benchmarkJSONGen len lst =
+let benchmark_json_gen len lst =
   let rec helper lent lst_p ctr =
   if ((List.length lst_p) > lent) then lst_p
   else
