@@ -8,6 +8,7 @@ let help_msg = "
 | -agg_doc : Information on format for AGG_DOC                |
 | -index_doc : Information on format for INDEX_DOC            |
 | -indkey_doc : Information on format for INDKEY_DOC          |
+| -store : Information on the store flag                      |
 ---------------------------------------------------------------
 
                       DATABASE COMMANDS
@@ -64,9 +65,9 @@ let indkey_doc_msg =
 
 let store_msg =
   "If you wish to pipe the results of your query to a json file, end your command with the -s flag.
-  The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
-  Flagging inappropriate commands will have no effect.
-  Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
+    The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
+    Flagging inappropriate commands will have no effect.
+    Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
 
 let spacing = "    "
 

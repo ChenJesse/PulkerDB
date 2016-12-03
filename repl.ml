@@ -22,6 +22,7 @@ let rec loop input = (
   | "-agg_doc" -> ANSITerminal.(print_info agg_doc_msg)
   | "-index_doc" -> ANSITerminal.(print_info index_doc_msg)
   | "-indkey_doc" -> ANSITerminal.(print_info indkey_doc_msg)
+  | "-store" -> ANSITerminal.(print_info store_msg)
   | _ -> (
     match parse input with 
     | Success msg -> print_output msg
