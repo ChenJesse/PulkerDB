@@ -35,6 +35,7 @@ let query_doc_msg =
   "A query document. 
     Every general document is a query document. 
     Also supports comparators, which are: $lte, $lt, $gte, $gt, $ne. 
+    Note that on entering the comparators, wrap the keys in quotes, as you would a string.
     Example: {a: {$lt: 5}} looks for any documents with a field \"a\" less than 5.
     Example: {a: 5} looks for any documents with a field \"a\" equal to 5."
 
@@ -60,6 +61,12 @@ let indkey_doc_msg =
     Is composed of the form {field: key}, where the field is an attribute you have indexed on in this collection, 
     and the key is a value of that attribute for which you want to retrieve all associated documents.
     Example: {h: 2} where h is a field in my collection, and 2 is a value that h takes in certain documents."
+
+let store_msg = 
+  "If you wish to pipe the results of your query to a json file, end your command with the -s flag.
+  The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
+  Flagging inappropriate commands will have no effect.
+  Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
 
 let spacing = "    "
 

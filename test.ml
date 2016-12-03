@@ -20,8 +20,26 @@ let interpreter_tests = [
     (tuplize_input "db.COLLECTION_NAME.replace({asdf}|{fdas})"));
   "update" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "update", "{asdf}|{fdas}"))
     (tuplize_input "db.COLLECTION_NAME.update({asdf}|{fdas})"));
-    "index" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "createIndex", "{a:1}"))
+  "index" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "createIndex", "{a:1}"))
     (tuplize_input "db.COLLECTION_NAME.createIndex({a:1})"));
+  "dropDB_flagged" >:: (fun _ -> assert_equal (Triple("db", "dropDatabase", ""))
+    (tuplize_input "db.dropDatabase() -s"));
+  "createCol_flagged" >:: (fun _ -> assert_equal (Triple("db", "createCollection", "name"))
+    (tuplize_input "db.createCollection(name) -s"));
+  "dropCol_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "drop", ""))
+    (tuplize_input "db.COLLECTION_NAME.drop() -s"));
+  "insertDoc_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "drop", ""))
+    (tuplize_input "db.COLLECTION_NAME.drop() -s"));
+  "find_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "find", ""))
+    (tuplize_input "db.COLLECTION_NAME.find() -s"));
+  "remove_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "remove", "{asdf}"))
+    (tuplize_input "db.COLLECTION_NAME.remove({asdf}) -s"));
+  "replace_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "replace", "{asdf}|{fdas}"))
+    (tuplize_input "db.COLLECTION_NAME.replace({asdf}|{fdas}) -s"));
+  "update_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "update", "{asdf}|{fdas}"))
+    (tuplize_input "db.COLLECTION_NAME.update({asdf}|{fdas}) -s"));
+  "index_flagged" >:: (fun _ -> assert_equal (Quad("db", "COLLECTION_NAME", "createIndex", "{a:1}"))
+    (tuplize_input "db.COLLECTION_NAME.createIndex({a:1}) -s"));
 ]
 
 let db_tests = [

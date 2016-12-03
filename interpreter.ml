@@ -109,6 +109,10 @@ let get_index_helper a b c d =
     get_values g f b a
   | _ -> raise ParseError
 
+let store i response = 
+  let flagged = (String.contains i '-') && (suffix '-' i) = "s" in 
+  if flagged then response else response
+
 let handle_triple a b c = 
   match b with
   | "show" -> if c = "" then show_db a else raise ParseError
@@ -118,14 +122,14 @@ let handle_triple a b c =
     else raise ImproperNameError
   | _ -> raise ParseError
 
-let handle_quad a b c d = 
+let handle_quad a b c d i = 
   match c with
   | "createindex" -> create_index_helper a b c d
   | "drop" -> if d = "" then drop_col a b else raise ParseError
-  | "show" -> if d = "" then show_col a b else raise ParseError
+  | "show" -> if d = "" then show_col a b |> store i else raise ParseError
   | "insert" -> parse_json d |> create_doc a b
-  | "find" ->  parse_json d |> query_col a b
-  | "aggregate" -> parse_json d |> aggregate a b
+  | "find" ->  parse_json d |> query_col a b 
+  | "aggregate" -> parse_json d |> aggregate a b  
   | "remove" -> parse_json d |> remove_doc a b
   | "replace" ->
     (let pair = tuplize_parameters d in
@@ -148,7 +152,7 @@ let parse input =
       if input = "show" then show_catalog ()
       else match (tuplize_input i) with
       | Triple (a, b, c) -> handle_triple a b c 
-      | Quad (a, b, c, d) -> handle_quad a b c d 
+      | Quad (a, b, c, d) -> handle_quad a b c d i 
     | _ -> failwith "Improper tuple"
   ) with
   | ParseDocError -> 
