@@ -1,6 +1,7 @@
 open Yojson.Basic
 open Persist
 open Tree
+open Models
 
 type response = Success of string | Failure of string
 

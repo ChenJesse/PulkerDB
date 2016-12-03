@@ -1,6 +1,7 @@
 open Yojson.Basic
 open Db
 open Persist
+open Models
 
 type tuple =
 | Nil
