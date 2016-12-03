@@ -12,6 +12,8 @@ val environment : catalog
  *)
 val create_doc : string -> string -> doc -> response
 
+val persist_query : response -> response
+
 (**
  * Given a string representing name of db, creates a db in the environment.
  * On failure, return false. On success, return true.

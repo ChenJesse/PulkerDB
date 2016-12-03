@@ -8,3 +8,4 @@
 #load "interpreter.cmo";;
 #use "tree.ml";;
 #use "db.ml";;
+#use "interpreter.ml"

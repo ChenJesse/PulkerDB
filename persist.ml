@@ -41,7 +41,6 @@ let write_query_json json =
   let filepath = "Output/" ^ filename ^ ".json" in
   Yojson.Basic.to_file filepath json
 
-
 (* [col filename] Given a filename, returns true if filename is a
  * collection ie ends with .json file extension
  * requires:

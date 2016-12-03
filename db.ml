@@ -67,6 +67,12 @@ let compareJSON a b =
  *)
 let key_sort arr = Array.sort compareJSON arr
 
+let persist_query response = match response with
+  | Success json_string ->
+    (json_string |> from_string |> Persist.write_query_json);
+    Success json_string
+  | Failure x -> Failure x
+
 (* -------------------------------CREATION------------------------------- *)
 
 (**
@@ -93,18 +99,18 @@ let create_db db_name =
 let rec index_modifier og_doc doc col = match doc with
   | [] -> ()
   | (k,v)::tl ->
-    let rec helper indices = match indices with 
+    let rec helper indices = match indices with
     | [] -> index_modifier og_doc tl col
-    | index::t -> 
-      if index.id_name = k then 
-        let tree = index.keys in 
-        if Tree.member v !tree then 
+    | index::t ->
+      if index.id_name = k then
+        let tree = index.keys in
+        if Tree.member v !tree then
           if ((Tree.find v !tree) = [`Null] && v <>`Null ||
              ((Tree.find v !tree) = [`Int 0] && v <> `Int 0))
           then tree:= Tree.insert v og_doc (!tree) true
           else tree:= Tree.insert v og_doc (!tree) false
         else tree := Tree.insert v og_doc (!tree) false
-    in 
+    in
     helper (snd col)
 
 (**
@@ -147,8 +153,8 @@ let rec get_index index_name index =
 let rec tree_helper tree_list value =
   match tree_list with
   | [] -> Failure (pretty_to_string (`List []))
-  | (k,v)::tl -> 
-    if value = k then Success (pretty_to_string (`List v)) 
+  | (k,v)::tl ->
+    if value = k then Success (pretty_to_string (`List v))
     else tree_helper tl value
 
 (**
@@ -267,11 +273,14 @@ let parse_op str = match str with
   | "$exists" -> Some Exists
   | _ -> None
 
+let write_query doc_list = match response with
+  | Success json_string -> json_string |> Yojson.Basic.parse_json |>
+
 (**
  * query_doc is guaranteed to have the field this index tree is built on.
  * collectionTree is the index for the attribute specified.
  * This needs to parse the query and figure out what type of query it is.
- * Depending on what type of query it is, 
+ * Depending on what type of query it is,
  * it will then call traverse with certain bounds on the tree *)
 let index_query_builder col_tree query_doc =
   let rec helper col_tree query_doc = match query_doc with
@@ -364,14 +373,14 @@ let check_doc doc query_doc =
 *)
 let index_checker col query_list =
   let docs = ref [] in
-  let rec helper query_list = 
-    match query_list with 
+  let rec helper query_list =
+    match query_list with
     | [] -> docs := fst col
-    | h::t -> 
-      let index = get_index (fst h) (snd col) in 
+    | h::t ->
+      let index = get_index (fst h) (snd col) in
       if index <> Tree.empty then docs := index_query_builder index (`Assoc [h])
       else helper t
-  in 
+  in
   helper query_list;
   if !docs = [] then docs := (fst col);
   !docs
@@ -390,7 +399,7 @@ let query_col db_name col_name query_doc =
     let query_string = `List(query_result) |> pretty_to_string in
     Success query_string
   ) with
-  | InvalidQueryDocException -> 
+  | InvalidQueryDocException ->
     Failure "Invalid query doc. Refer to -query_doc for more information."
   | LocateDBException -> Failure(db_find_error db_name)
   | LocateColException -> Failure(col_find_error col_name)
@@ -446,7 +455,7 @@ let rec recreate_index db_name col_name index_list new_list=
   |[]-> new_list
   |{id_name= name; id_table= idtable; keys= tree}::tl->
       let query_doc = `Assoc [(name, `Assoc[("$exists", `Bool true)])] in
-      let _ = create_index db_name col_name name query_doc in 
+      let _ = create_index db_name col_name name query_doc in
       let new_index_list = (snd) (db_name |> get_db |> get_col col_name) in
       let newTree = get_index name new_index_list in
       {id_name = name; id_table = idtable; keys = ref(newTree)}::new_list
@@ -499,16 +508,16 @@ let bucketize db_name col_name attr =
 
 let aggregator_attr bucket op t_field =
   match op with
-  | "$sum" -> 
-    `Int (List.fold_left (fun acc doc -> 
-      let v = Util.(member t_field doc |> to_int) in 
+  | "$sum" ->
+    `Int (List.fold_left (fun acc doc ->
+      let v = Util.(member t_field doc |> to_int) in
         acc + v) 0 bucket)
-  | "$max" -> 
-    `Int (List.fold_left (fun max doc -> 
-      let v = Util.(member t_field doc |> to_int) in 
+  | "$max" ->
+    `Int (List.fold_left (fun max doc ->
+      let v = Util.(member t_field doc |> to_int) in
         if v > max then v else max) min_int bucket)
-  | "$min" -> `Int (List.fold_left (fun min doc -> 
-      let v = Util.(member t_field doc |> to_int) in 
+  | "$min" -> `Int (List.fold_left (fun min doc ->
+      let v = Util.(member t_field doc |> to_int) in
         if v < min then v else min) max_int bucket)
   | _ -> failwith "Aggregator failed"
 
@@ -551,12 +560,12 @@ let aggregate db_name col_name agg_doc =
       aggregation_helper acc filtered buckets;
       let agg_string = `List(!acc) |> pretty_to_string in
       Success agg_string
-    | _ -> Failure "Error with aggregating response. 
+    | _ -> Failure "Error with aggregating response.
                     Refer to -agg_doc for more information."
   ) with
   | LocateDBException -> Failure (db_find_error db_name)
   | LocateColException -> Failure (col_find_error col_name)
-  | _ -> Failure "Error with aggregating response. 
+  | _ -> Failure "Error with aggregating response.
                   Refer to -agg_doc for more information."
 
 (* -------------------------------REMOVING--------------------------------- *)
@@ -597,7 +606,7 @@ let drop_col db_name col_name =
   ) with
   | _ -> Failure unexpected_error
 
-let batch_replace doc_list tree index_val = 
+let batch_replace doc_list tree index_val =
   let zerothdoc = List.nth doc_list 0 in
   let nonzerodocs = List.filter (fun f-> f <> zerothdoc) doc_list in
   tree := Tree.insert index_val zerothdoc !tree true;
@@ -613,14 +622,14 @@ let rec replace_tree index_list doc =
     let index_val = Util.member name doc in
     if index_val <> `Null then
       let doc_list = Tree.find index_val !tree |> List.filter (fun f -> f <> doc) in
-      match List.length doc_list with 
+      match List.length doc_list with
       | 0 -> tree := Tree.insert index_val `Null !tree true
       | 1 -> tree := Tree.insert index_val (List.nth doc_list 0) !tree true
       | _ -> batch_replace doc_list tree index_val
     else
-      if Tree.member index_val !tree then 
+      if Tree.member index_val !tree then
         let doc_list = List.filter (fun f -> f <> doc) (Tree.find index_val !tree) in
-        if List.length doc_list = 0 then 
+        if List.length doc_list = 0 then
           tree := Tree.insert index_val (`Int 0) !tree true
         else batch_replace doc_list tree index_val
       else replace_tree tl doc
@@ -645,13 +654,13 @@ let remove_doc db_name col_name query_doc =
   ) with
   | LocateDBException -> Failure (db_find_error db_name)
   | LocateColException -> Failure (col_find_error col_name)
-  | _ -> Failure "Error with removing documents. 
+  | _ -> Failure "Error with removing documents.
                   Refer to -query_doc for more information."
 
 (* ----------------------------UPDATING/REPLACING---------------------------- *)
 
 (**
- * Given a doc representing criteria to query on, 
+ * Given a doc representing criteria to query on,
  * removes all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
@@ -694,7 +703,7 @@ let rec modify_doc doc update_doc =
 
 (**
  * Given a doc representing criteria to query on, removes all appropriate docs,
- * and then inserts the given doc. On failure, return false. 
+ * and then inserts the given doc. On failure, return false.
  * On success, return true.
  *)
 let replace_col db_name col_name query_doc update_doc =
@@ -715,7 +724,7 @@ let replace_col db_name col_name query_doc update_doc =
     is in the correct format. Refer to -query_doc for more information."
 
 (**
- * Given a doc representing criteria to query on, 
+ * Given a doc representing criteria to query on,
  * updates all appropriate docs in the environment.
  * On failure, return false. On success, return true.
  *)
@@ -739,3 +748,4 @@ let update_col db_name col_name query_doc update_doc =
     Refer to -query_doc and -update_doc for more information."
 
 let clear_env () = Hashtbl.reset environment
+
