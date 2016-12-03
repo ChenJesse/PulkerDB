@@ -18,13 +18,12 @@ exception ParseDocError
 (**
  * given a valid string of a JSON, will output
  * corresponding doc with the appropriate structure
+ *   - [json_string] is a string
  *)
 let parse_json json_string = try (from_string json_string) with 
   | _ -> raise ParseDocError
 
-(**
- * Trims white space, convert to lowercase
- *)
+(* Trims white space, convert to lowercase *)
 let sanitize_input input = String.(trim input |> lowercase_ascii)
 
 (** Check that the collection or database name is valid *)
@@ -32,27 +31,19 @@ let validate_name input =
   not (String.(contains input ' ' || contains input '(' || contains input ')'
     || contains input '|'))
 
-(**
- * Returns a string containing everything before
- * the first instance of c in input
- *)
+(* Returns a string containing everything before the first instance of c in input *)
 let prefix c input = String.sub input 0 (String.index input c)
 
-(**
- * Returns a string containing everything before
- * the last instance of c in input
- *)
+(* Returns a string containing everything before the last instance of c in input *)
 let rprefix c input = String.sub input 0 (String.rindex input c)
 
-(**
- * Returns a string containing everything after
- * the first instance of c in input
- *)
+(* Returns a string containing everything after the first instance of c in input *)
 let suffix c input = ((String.length input) - ((String.index input c) + 1))
     |> String.sub input ((String.index input c) + 1)
 
 (**
- * Returns response, given a sanitized input
+ * Handles the logic for a 'use db' command. 
+ *   - [input] is a sanitized input from parse
  *)
 let handle_use_db input =
   let command = prefix ' ' input in
@@ -63,8 +54,9 @@ let handle_use_db input =
     | _ -> raise ParseError
 
 (**
- * Given an input, parses it into a tuple of 3 or 4
- * elements
+ * Given an input, parses it into a tuple of 3 or 4 elements
+ * based on certain delimiting characters
+ *   - [input] is a sanitized input from parse
  *)
 let tuplize_input input =
   let rec helper acc i =
@@ -90,10 +82,15 @@ let tuplize_input input =
   helper Nil input
 
 (**
- * Will split two parameters into a tuple
+ * Will split parameters into a tuple, looking for the | char
+ *   - [input] is a string
  *)
 let tuplize_parameters input = (prefix '|' input, suffix '|' input)
 
+(**
+ * Handles the logic for a 'createIndex' command. 
+ *   - [a, b, c, d] are the components of a quad
+ *)
 let create_index_helper a b c d = 
   match parse_json d with
   | `Assoc lst -> 
@@ -102,6 +99,10 @@ let create_index_helper a b c d =
     create_index a b f query_doc
   | _ -> raise ParseError
 
+(**
+ * Handles the logic for a 'getIndex' command. 
+ *   - [a, b, c, d] are the components of a quad
+ *)
 let get_index_helper a b c d = 
   match parse_json d with
   | `Assoc lst -> 
@@ -109,10 +110,20 @@ let get_index_helper a b c d =
     get_values g f b a
   | _ -> raise ParseError
 
+(**
+ * Checks for the -s flag, that signals that the output must be 
+ * stored in a json
+ *   - [i] is the sanitized input from parse
+ *   - [response] is the normal response from parse
+ *)
 let store i response = 
   let flagged = (String.contains i '-') && (suffix '-' i) = "s" in 
   if flagged then response |> persist_query else response
 
+(**
+ * Handles all commands that are tuplized into 3 parts.
+ *   - [a, b, c] are the components of a triple
+ *)
 let handle_triple a b c = 
   match b with
   | "show" -> if c = "" then show_db a else raise ParseError
@@ -122,6 +133,11 @@ let handle_triple a b c =
     else raise ImproperNameError
   | _ -> raise ParseError
 
+(**
+ * Handles all commands that are tuplized into 4 parts.
+ *   - [a, b, c, d] are the components of a quad
+ *   - [i] is the sanitized input from parse
+ *)
 let handle_quad a b c d i = 
   match c with
   | "createindex" -> create_index_helper a b c d
@@ -141,7 +157,9 @@ let handle_quad a b c d i =
   | _ -> raise ParseError
 
 (**
- * Parses the input from the REPL, and calls the appropriate function
+ * Parses the input from the REPL, and calls the appropriate function, 
+ * returning a response
+ *   - [input] is a string
  *)
 let parse input =
   try (
