@@ -71,3 +71,5 @@ let store_msg =
 
 let spacing = "    "
 
+let exiting_msg = "Persisting your changes, existing gracefully..."
+

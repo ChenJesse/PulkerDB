@@ -93,6 +93,8 @@ let persist_query response = match response with
 
 (* -------------------------------CREATION------------------------------- *)
 
+let new_dbs = ref []
+
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
   | true -> Failure "Database with same name already exists"
@@ -100,10 +102,11 @@ let create_db db_name =
       let (empty_db:db) = (Hashtbl.create 100, false) in
       read_db db_name empty_db;
       add_db_env db_name empty_db;
-      Success "Database loaded into memory!"
+      Failure "Database with same name already exists"
     ) with
     | NotInDisc ->
       add_db_env db_name (Hashtbl.create 100, true);
+      new_dbs := db_name::(!new_dbs);
       Success "Database created successfully!"
     | _ -> Failure unexpected_error
 
@@ -488,8 +491,9 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let contents_list = Hashtbl.fold (fun k _ init -> k::init) environment [] in
-    let contents = stringify_list contents_list in
+    let persisted_dbs = Hashtbl.fold (fun k _ init -> k::init) environment [] in (* TODO: Replace with function instead of environment *)
+    let new_dbs = !new_dbs in 
+    let contents = new_dbs@persisted_dbs |> stringify_list in
     Success contents
   ) with
   | _ -> Failure unexpected_error
