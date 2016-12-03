@@ -5,8 +5,9 @@ let help_msg = "
 | -gen_doc : Information on format for ANY_DOC                |
 | -query_doc : Information on format for QUERY_DOC            |
 | -update_doc : Information on format for UPDATE_DOC          |
-| -agg_doc : Information on format for for AGG_DOC            |
-| -index_doc : Information on format for for AGG_DOC          |
+| -agg_doc : Information on format for AGG_DOC                |
+| -index_doc : Information on format for INDEX_DOC            |
+| -indkey_doc : Information on format for INDKEY_DOC          |
 ---------------------------------------------------------------
 
                       DATABASE COMMANDS
@@ -23,6 +24,7 @@ let help_msg = "
 | db.COLLECTION_NAME.remove(QUERY_DOC)                        |
 | db.COLLECTION_NAME.aggregate(AGG_DOC)                       |
 | db.COLLECTION_NAME.createIndex(INDEX_DOC)                   |
+| db.COLLECTION_NAME.getIndex(INDEX_DOC)                      |
 --------------------------------------------------------------- \n"
 
 let gen_doc_msg = 
@@ -33,6 +35,7 @@ let query_doc_msg =
   "A query document. 
     Every general document is a query document. 
     Also supports comparators, which are: $lte, $lt, $gte, $gt, $ne. 
+    Note that on entering the comparators, wrap the keys in quotes, as you would a string.
     Example: {a: {$lt: 5}} looks for any documents with a field \"a\" less than 5.
     Example: {a: 5} looks for any documents with a field \"a\" equal to 5."
 
@@ -47,6 +50,23 @@ let agg_doc_msg =
     A general document that must have an \"_id\" field designating the attribute to group by, and pairs of this structure: 
     {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method ($sum, $max, or $min), 
     and z is the field name of what you want to aggregate on."
+
+let index_doc_msg = 
+  "An index document.
+    A document that consists of one key value pair, in the format {field: 1}.
+    The field must exist in the collection you are creating the index on. If not, the creation will fail."
+
+let indkey_doc_msg = 
+  "An index-key document.
+    Is composed of the form {field: key}, where the field is an attribute you have indexed on in this collection, 
+    and the key is a value of that attribute for which you want to retrieve all associated documents.
+    Example: {h: 2} where h is a field in my collection, and 2 is a value that h takes in certain documents."
+
+let store_msg = 
+  "If you wish to pipe the results of your query to a json file, end your command with the -s flag.
+  The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
+  Flagging inappropriate commands will have no effect.
+  Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
 
 let spacing = "    "
 

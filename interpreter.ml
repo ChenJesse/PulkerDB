@@ -19,7 +19,8 @@ exception ParseDocError
  * given a valid string of a JSON, will output
  * corresponding doc with the appropriate structure
  *)
-let parse_json json_string = try (from_string json_string) with | _ -> raise ParseDocError
+let parse_json json_string = try (from_string json_string) with 
+  | _ -> raise ParseDocError
 
 (**
  * Trims white space, convert to lowercase
@@ -28,7 +29,8 @@ let sanitize_input input = String.(trim input |> lowercase_ascii)
 
 (** Check that the collection or database name is valid *)
 let validate_name input =
-  not (String.(contains input ' ' || contains input '(' || contains input ')'))
+  not (String.(contains input ' ' || contains input '(' || contains input ')'
+    || contains input '|'))
 
 (**
  * Returns a string containing everything before
@@ -74,7 +76,8 @@ let tuplize_input input =
       let (add, remainder) =
         if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
         else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
-        else if (String.contains i '(') then ((prefix '(' i), ("(" ^ (suffix '(' i)))
+        else if (String.contains i '(') then 
+          ((prefix '(' i), ("(" ^ (suffix '(' i)))
         else (i, "")
       in
       match acc with
@@ -91,6 +94,52 @@ let tuplize_input input =
  *)
 let tuplize_parameters input = (prefix '|' input, suffix '|' input)
 
+let create_index_helper a b c d = 
+  match parse_json d with
+  | `Assoc lst -> 
+    let (f, g) = List.hd lst in 
+    let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
+    create_index a b f query_doc
+  | _ -> raise ParseError
+
+let get_index_helper a b c d = 
+  match parse_json d with
+  | `Assoc lst -> 
+    let (f, g) = List.hd lst in 
+    get_values g f b a
+  | _ -> raise ParseError
+
+let store i response = 
+  let flagged = (String.contains i '-') && (suffix '-' i) = "s" in 
+  if flagged then response else response
+
+let handle_triple a b c = 
+  match b with
+  | "show" -> if c = "" then show_db a else raise ParseError
+  | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
+  | "createcollection" ->
+    if (validate_name c) then create_col a c
+    else raise ImproperNameError
+  | _ -> raise ParseError
+
+let handle_quad a b c d i = 
+  match c with
+  | "createindex" -> create_index_helper a b c d
+  | "drop" -> if d = "" then drop_col a b else raise ParseError
+  | "show" -> if d = "" then show_col a b |> store i else raise ParseError
+  | "insert" -> parse_json d |> create_doc a b
+  | "find" ->  parse_json d |> query_col a b 
+  | "aggregate" -> parse_json d |> aggregate a b  
+  | "remove" -> parse_json d |> remove_doc a b
+  | "replace" ->
+    (let pair = tuplize_parameters d in
+    replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
+  | "update" ->
+    (let pair = tuplize_parameters d in
+    update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
+  | "getindex" -> get_index_helper a b c d
+  | _ -> raise ParseError
+
 (**
  * Parses the input from the REPL, and calls the appropriate function
  *)
@@ -100,43 +149,15 @@ let parse input =
     match (Str.string_match (Str.regexp "use") i 0) with
     | true -> handle_use_db i
     | false ->
-      if input = "exit" then failwith "Unimplemented" (* Should persist all the changed collections *)
-      else if input = "show" then show_catalog ()
+      if input = "show" then show_catalog ()
       else match (tuplize_input i) with
-      | Triple (a, b, c) -> ( match b with
-        | "show" -> if c = "" then show_db a else raise ParseError
-        | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
-        | "createcollection" -> 
-          if (validate_name c) then create_col a c
-          else raise ImproperNameError
-        | _ -> raise ParseError
-      )
-      | Quad (a, b, c, d) -> (match c with
-        | "createindex" -> (
-          let e = parse_json d in
-          match e with
-          |`Assoc lst -> match lst with
-          | ((f : string), (g : Yojson.Basic.json))::tl ->
-            let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
-            create_index a b f query_doc)
-        | "drop" -> if d = "" then drop_col a b else raise ParseError
-        | "show" -> if d = "" then show_col a b else raise ParseError
-        | "insert" -> parse_json d |> create_doc a b
-        | "find" ->  parse_json d |> query_col a b
-        | "aggregate" -> parse_json d |> aggregate a b
-        | "remove" -> parse_json d |> remove_doc a b
-        | "replace" ->
-          (let pair = tuplize_parameters d in
-          replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
-        | "update" ->
-          (let pair = tuplize_parameters d in
-          update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
-        | _ -> raise ParseError
-
-      )
+      | Triple (a, b, c) -> handle_triple a b c 
+      | Quad (a, b, c, d) -> handle_quad a b c d i 
     | _ -> failwith "Improper tuple"
   ) with
-  | ParseDocError -> Failure "Invalid document provided. Refer to documentation in -help for more information."
-  | ParseError -> Failure "Invalid command inputed."
+  | ParseDocError -> 
+    Failure "Invalid document provided. 
+            Refer to documentation in -help for more information."
+  | ParseError -> Failure "Invalid command input."
   | ImproperNameError -> Failure "Invalid database or collection name."
   | _ -> Failure "Something unexpected happened."
