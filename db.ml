@@ -273,9 +273,6 @@ let parse_op str = match str with
   | "$exists" -> Some Exists
   | _ -> None
 
-let write_query doc_list = match response with
-  | Success json_string -> json_string |> Yojson.Basic.parse_json |>
-
 (**
  * query_doc is guaranteed to have the field this index tree is built on.
  * collectionTree is the index for the attribute specified.

@@ -38,6 +38,7 @@ let create_dir name =
 let write_query_json json =
   create_dir "Output";
   let filename = string_of_int (!output_name) in
+  output_name := !output_name + 1;
   let filepath = "Output/" ^ filename ^ ".json" in
   Yojson.Basic.to_file filepath json
 
