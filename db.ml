@@ -69,8 +69,8 @@ let key_sort arr = Array.sort compareJSON arr
 
 let persist_query response = match response with
   | Success json_string ->
-    (json_string |> from_string |> Persist.write_query_json);
-    Success json_string
+    let file = json_string |> from_string |> write_query_json in 
+    Success ("Output stored at " ^ file ^ ".\n" ^ json_string)
   | Failure x -> Failure x
 
 (* -------------------------------CREATION------------------------------- *)

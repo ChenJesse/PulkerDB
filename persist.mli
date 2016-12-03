@@ -30,7 +30,7 @@ exception NotInDisc
 
 val output_name : int ref
 
-val write_query_json : Yojson.Basic.json -> unit
+val write_query_json : Yojson.Basic.json -> string
 
 val remove_db: string -> unit
 

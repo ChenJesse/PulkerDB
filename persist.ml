@@ -40,7 +40,8 @@ let write_query_json json =
   let filename = string_of_int (!output_name) in
   output_name := !output_name + 1;
   let filepath = "Output/" ^ filename ^ ".json" in
-  Yojson.Basic.to_file filepath json
+  Yojson.Basic.to_file filepath json; 
+  filepath
 
 (* [col filename] Given a filename, returns true if filename is a
  * collection ie ends with .json file extension

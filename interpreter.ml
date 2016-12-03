@@ -111,7 +111,7 @@ let get_index_helper a b c d =
 
 let store i response = 
   let flagged = (String.contains i '-') && (suffix '-' i) = "s" in 
-  if flagged then response else response
+  if flagged then response |> persist_query else response
 
 let handle_triple a b c = 
   match b with
@@ -128,8 +128,8 @@ let handle_quad a b c d i =
   | "drop" -> if d = "" then drop_col a b else raise ParseError
   | "show" -> if d = "" then show_col a b |> store i else raise ParseError
   | "insert" -> parse_json d |> create_doc a b
-  | "find" ->  parse_json d |> query_col a b 
-  | "aggregate" -> parse_json d |> aggregate a b  
+  | "find" ->  parse_json d |> query_col a b |> store i
+  | "aggregate" -> parse_json d |> aggregate a b |> store i
   | "remove" -> parse_json d |> remove_doc a b
   | "replace" ->
     (let pair = tuplize_parameters d in
