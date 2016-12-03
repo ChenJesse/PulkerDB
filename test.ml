@@ -377,7 +377,8 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 3})";  parse "test.c.createIndex({a:1})";
       parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
       parse "test.c.remove({a: 1})"; parse "test.c.show()"));
-  "test30" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 1234}, {a: {b: {c: 2}}}]"))
+  "test30" >:: (fun _ ->
+    assert_equal (Success (json_printer "[{a: 1234}, {a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})";
@@ -392,7 +393,8 @@ let end_to_end_tests = [
       parse "test.c.replace({a: 1}| {a: 1234})"; parse "test.c.createIndex({b:1})";
       parse "test.c.show()"));
   "test31" >:: (fun _ ->
-    assert_equal (Success (json_printer "[{_id: 1, asdf: 101}, {_id: 2, asdf: 1000}]"))
+    assert_equal
+    (Success (json_printer "[{_id: 1, asdf: 101}, {_id: 2, asdf: 1000}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
       parse "test.c.insert({a: 1, b: 1})";
@@ -488,7 +490,8 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
       parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: {z: \"asdf\"}}}, h: 1234, a: 6}})";
       parse "test.c.find({a: 6})"));
-  "test34Remove1" >:: (fun _-> assert_equal (Success (json_printer "[{a: 2, b: 1000}]"))
+  "test34Remove1" >:: (fun _-> assert_equal
+    (Success (json_printer "[{a: 2, b: 1000}]"))
      (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
       parse "test.c.insert({a: 1, b: 1})";

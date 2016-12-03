@@ -748,3 +748,23 @@ let update_col db_name col_name query_doc update_doc =
 
 let clear_env () = Hashtbl.reset environment
 
+let benchmarker ()=
+  let _ = create_db "benchmark_db" in
+  let _ = create_col "benchmark_db" "col1" in
+  let _= create_col "benchmark_db" "col2" in
+  let json_list_1  = benchmark_json_gen 20000 [] in
+  let json_list_2 = benchmark_json_gen 20000 [] in
+  let index_doc = `Assoc[ ("a", `Assoc[("$exists", `Bool true)])] in
+  let query_doc = `Assoc[ ("a", `Int 5); ("b", `Int 10)] in
+  List.map(fun f-> create_doc "benchmark_db" "col1" f) json_list_1;
+  List.map(fun f-> create_doc "benchmark_db" "col2" f) json_list_2;
+  let _ = create_index "benchmark_db" "col2" "a" index_doc in
+  let t = Sys.time() in
+  let _ = query_col "benchmark_db" "col1" query_doc in
+  let time_query_1  = Sys.time() -. t in
+  let t_query_2 = Sys.time() in
+  let _ = query_col "benchmark_db" "col2" query_doc in
+  let time_query_2 = Sys.time() -. t_query_2 in
+  Success ("The time to run query 1 was: " ^ (string_of_float time_query_1) ^
+           " the time to run query 2 was: " ^ (string_of_float time_query_2))
+
