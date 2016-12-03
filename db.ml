@@ -130,7 +130,6 @@ let rec index_updater ogDoc doc col = match doc with
  *)
 
 let benchmarkJSONGen len lst =
->>>>>>> ok
   let rec helper lent lst_p ctr =
   if ((List.length lst_p) > lent) then lst_p
   else
