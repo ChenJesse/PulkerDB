@@ -78,7 +78,8 @@ let write_db db_name db =
   (try (
     Unix.mkdir db_name 0o777;
     Unix.chdir "..")
-  with Unix.Unix_error (Unix.EEXIST, "mkdir", _) ->
+  with Unix.Unix_error (Unix.EEXIST, "mkdir", db_name) ->
+    Unix.chdir "..";
     Hashtbl.iter helper col_hashtbl);
   Hashtbl.iter helper col_hashtbl
 
@@ -93,7 +94,7 @@ let write_env (env : catalog) =
         Unix.rmdir db_name;
         write_db db_name db))
     with
-      | NotInDisc -> write_db db_name db
+      | NotInDisc -> "test4";write_db db_name db
   in
   create_dir "Persist";
   Hashtbl.iter helper env

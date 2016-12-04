@@ -41,6 +41,7 @@ let get_db db_name =
       | _ ->
         let (empty_db : db) = ((Hashtbl.create 100), false) in
         read_db db_name empty_db;
+        add_db_env db_name empty_db;
         empty_db
   ) with
   | _ -> raise LocateDBException
@@ -493,7 +494,7 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let persisted_dbs = show_persisted () in 
+    let persisted_dbs = show_persisted () in
     let new_dbs = !new_dbs in
     let contents = new_dbs@persisted_dbs |> stringify_list in
     Success contents
