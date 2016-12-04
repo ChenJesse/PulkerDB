@@ -71,12 +71,15 @@ let write_collection db_name col_name doc_list =
  * creating a json in the directory for every collection *)
 let write_db db_name db =
   let (col_hashtbl, dirty) = db in
-  Unix.chdir "Persist";
-  Unix.mkdir db_name 0o777;
-  Unix.chdir "..";
   let helper col_name col =
-    write_collection db_name col_name ((fst)col)
+    write_collection db_name col_name (fst col)
   in
+  Unix.chdir "Persist";
+  (try (
+    Unix.mkdir db_name 0o777;
+    Unix.chdir "..")
+  with Unix.Unix_error (Unix.EEXIST, "mkdir", _) ->
+    Hashtbl.iter helper col_hashtbl);
   Hashtbl.iter helper col_hashtbl
 
 (* Writes every db in the catalog to disc, creating a directory for every db
@@ -142,6 +145,6 @@ let show_persisted () =
     with
       | End_of_file -> acc
   in
-  try (helper (Unix.opendir "Persist") []) with 
+  try (helper (Unix.opendir "Persist") []) with
   | _ -> []
-  
+
