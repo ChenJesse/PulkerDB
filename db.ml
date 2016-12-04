@@ -107,17 +107,8 @@ let save_env () = write_env environment; Success "Saved successfully!"
 
 (* -------------------------------CREATION------------------------------- *)
 
-<<<<<<< HEAD
-(**
- * Given a string representing name of db, checks for db with same name in
- * the environment, then checks if db exists in disk, and if so, loads it
- * into memory. Otherwise, Creates the db.
- * requires:
- *   - [db_name] is a string
- *)
-=======
+
 let new_dbs = ref []
->>>>>>> a797be0a101675d17a20f20915d7acc5cf292324
 
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
@@ -546,7 +537,7 @@ let show_db db_name =
 let show_catalog () =
   try (
     let persisted_dbs = Hashtbl.fold (fun k _ init -> k::init) environment [] in (* TODO: Replace with function instead of environment *)
-    let new_dbs = !new_dbs in 
+    let new_dbs = !new_dbs in
     let contents = new_dbs@persisted_dbs |> stringify_list in
     Success contents
   ) with
