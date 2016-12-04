@@ -300,6 +300,7 @@ let index_query_builder col_tree query_doc =
       | "$gt" -> Some Greater
       | "$gte" -> Some GreaterEq
       | "$ne" -> Some NotEq
+      | "$exists" -> Some Exists
       | _ -> None
       in
       let max_temp = `List[`Int max_int] in
@@ -451,20 +452,20 @@ let create_index db_name col_name index_name query_doc =
     Success "Index was successfully made!"
 
 (**
- * Given a remove operation, updates the index tree to reflect new state.
+ * Given a update or replace operation, updates the index tree to reflect new state.
  * requires:
  *   - [db_name] is the string
  *   - [col_name] is the string
  *   - [index_list] is a list of index_file
  *   - [new_list] is a list of index_file
  *)
-let rec recreate_index db_name col_name index_list new_list=
+let rec recreate_index db_name col_name index_list new_list =
   match index_list with
-  |[]-> new_list
-  |{id_name= name; id_table= idtable; keys= tree}::tl->
+  | []-> new_list
+  | {id_name= name; id_table= idtable; keys= tree}::tl->
       let query_doc = `Assoc [(name, `Assoc[("$exists", `Bool true)])] in
       let _ = create_index db_name col_name name query_doc in
-      let new_index_list = (snd) (db_name |> get_db |> get_col col_name) in
+      let new_index_list = snd (db_name |> get_db |> get_col col_name) in
       let newTree = get_index name new_index_list in
       {id_name = name; id_table = idtable; keys = ref(newTree)}::new_list
 
@@ -681,7 +682,7 @@ let rec replace_tree index_list doc =
       let doc_list = Tree.find index_val !tree |> List.filter (fun f -> f <> doc) in
       match List.length doc_list with
       | 0 -> tree := Tree.insert index_val `Null !tree true
-      | 1 -> tree := Tree.insert index_val (List.nth doc_list 0) !tree true
+      | 1 -> tree := Tree.insert index_val (List.hd doc_list) !tree true
       | _ -> batch_replace doc_list tree index_val
     else
       if Tree.member index_val !tree then
@@ -704,8 +705,8 @@ let remove_doc db_name col_name query_doc =
     let col = get_col col_name db in
     let index_list = (snd) col in
     let new_col = List.filter (fun d -> not (check_doc d query_doc)) (fst col) in
+    let lost_docs = List.filter (fun d ->  (check_doc d query_doc)) (fst col) in
     Hashtbl.replace (fst db) col_name (new_col, []);
-    let lost_docs = List.filter (fun d->  (check_doc d query_doc)) (fst col) in
     List.iter (replace_tree index_list) lost_docs;
     Hashtbl.replace (fst db) col_name (new_col, snd col);
     set_dirty db_name;

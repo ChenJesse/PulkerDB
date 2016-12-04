@@ -32,7 +32,7 @@ FEATURE OVERVIEW
 | use DATABASE_NAME                                 |  -usdb  |
 | use benchmark                                     |  -usbm  |
 | db.dropDatabase()                                 |  -drdb  |
-| db.show()                                         |  -dbsh  | 
+| db.show()                                         |  -dbsh  |
 | db.createCollection(COLLECTION_NAME)              |  -ccol  |
 | db.COLLECTION_NAME.drop()                         |  -drcl  |
 | db.COLLECTION_NAME.insert(GEN_DOC)                |  -isrt  |
@@ -46,7 +46,7 @@ FEATURE OVERVIEW
 | db.COLLECTION_NAME.getIndex(INDEX_DOC)            |  -gidx  |
 ---------------------------------------------------------------
 
-Most of the commands are heavily based around MongoDB. 
+Most of the commands are heavily based around MongoDB.
 Tutorial's can be found at https://www.tutorialspoint.com/mongodb/.
 
 ------------------------------------------------------------------------------------------------------
@@ -68,27 +68,27 @@ ccol: Creates a collection in the specified database. Will fail if a collection 
 
 drcl: Drops a collection in the specified database. Will fail if collection does not exist.
 
-isrt: Inserts a document in the specified collection, in the specified database. 
-    Note that duplicate documents are permitted. 
+isrt: Inserts a document in the specified collection, in the specified database.
+    Note that duplicate documents are permitted.
     Enter -gen_doc for more information.
 
-find: Searches the specified collection for documents conforming to the query_doc's requirements. 
+find: Searches the specified collection for documents conforming to the query_doc's requirements.
     Note that if a document does not contain one of the specified fields in the query_doc, it will be treated as not satisfying the query_doc.
     Note that a document must have all of the specified fields in the query_doc.
-    Note that arrays are unfortunately not supported in querying. 
+    Note that arrays are unfortunately not supported in querying.
     Enter query_doc for more information.
 
 clsh: Shows all the documents that exist in the collection.
 
 repl: Chains together a remove operation, and an insert operation. Enter -query_doc or -gen_doc for more information.
 
-updt: Will update all the documents retrieved from the query_doc, according to the update_doc. 
+updt: Will update all the documents retrieved from the query_doc, according to the update_doc.
     Note that if the document does not already have a field to be updated, the field will be created.
     Enter -query_doc or -update_doc for more information.
 
 rmve: Will remove all the documents that satisfy the query_doc. Enter -query_doc for more information.
 
-aggr: Will aggregate the collection based on the agg_doc, and return the information in document form. 
+aggr: Will aggregate the collection based on the agg_doc, and return the information in document form.
     An aggregation operation consists of a group_by phase, and then aggregation operations on one or more fields.
     IMPORTANT: Aggregations are supported only for integers.
     Note that in the case where $sum has no luck aggregating the desired fields, it will return 0.
@@ -216,50 +216,225 @@ Output: Document created successfully!
 Explanation:
 ------------------------------------------------------------------------------------------------------
 ::> test.c.find({a: {"$lte": true}})
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
-------------------------------------------------------------------------------------------------------
+Output: [
+  { "a": "apple" },
+  { "a": 1 },
+  { "a": 2, "b": { "c": "asdf", "d": { "e": 100 } } },
+  { "a": true, "x": 123 }
+]
 
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.find({a:"banana"})
+Output: []
+Explanation:
+
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a: 2, b: {c: "asdf", d: {e: 200}}})
+Output: Document created successfully
+Explanation:
+-----------------------------------------------------------------------------------------------------
+::> test.c.find({b:{c:"asdf"}})
+Output:  [
+  { "a": 2, "b": { "c": "asdf", "d": { "e": 200 } } },
+  { "a": 2, "b": { "c": "asdf", "d": { "e": 100 } } }
+]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.find({b:{c:"asdf", d:{e:200}}})
+Output: [ { "a": 2, "b": { "c": "asdf", "d": { "e": 200 } } } ]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>  test.c.insert({a:5})
+Output: Document created successfuly
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.find({a: {"$lt":5}})
+Output: [
+  { "a": "apple" },
+  { "a": 1 },
+  { "a": 2, "b": { "c": "asdf", "d": { "e": 200 } } },
+  { "a": 2, "b": { "c": "asdf", "d": { "e": 100 } } },
+  { "a": 2, "b": { "c": "asdf", "d": { "e": 100 } } }
+]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.find({a: {"$gt":5}})
+Output: [ { "a": true, "x": 123 } ]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.find({a: {"$gte": 5}})
+Output: [ { "a": true, "x": 123 }, { "a": 5 } ]
+
+Explanation:
+-----------------------------------------------------------------------------------------------------
+::> test.c.find({a:{"$ne":2}})
+Output: [ { "a": "apple" }, { "a": 1 }, { "a": true, "x": 123 }, { "a": 5 } ]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>test.c.find({a:{"$ne":2}, x:123})
+Output:    [ { "a": true, "x": 123 } ]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.remove({a:{"$exists":true}})
+Output: Removed document successfully!
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output: []
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:2})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:3})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:4})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:5})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.replace({a:{"$lt":3}}|{a:100})
+Output: Collection replaced successfully
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output:[ { "a": 100 }, { "a": 5 }, { "a": 4 }, { "a": 3 } ]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.update({a:{"$lt": 100}}|{"$set":{b:2}})
+Output: Collection updated successfully!
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output: [ { "a": 100 }, { "b": 2, "a": 5 }, { "b": 2, "a": 4 }, { "b": 2, "a": 3 } ]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>test.c.update({a:{"$exists":true}}|{"$set":{b:"pulkit"}})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output: [
+  { "b": "pulkit", "a": 100 },
+  { "b": "pulkit", "a": 5 },
+  { "b": "pulkit", "a": 4 },
+  { "b": "pulkit", "a": 3 }
+]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.update({a:{"$exists":true}}|{"$set":{b:{c:"pulkit"}}})
+Output:  Collection updated successfully!
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output:[
+  { "b": { "c": "pulkit" }, "a": 100 },
+  { "b": { "c": "pulkit" }, "a": 5 },
+  { "b": { "c": "pulkit" }, "a": 4 },
+  { "b": { "c": "pulkit" }, "a": 3 }
+]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.update({a:{"$exists":true}}|{"$set":{b:{c:"pulkerton"}}})
+Output: Collection updated successfully!
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output: [
+  { "b": { "c": "pulkerton" }, "a": 100 },
+  { "b": { "c": "pulkerton" }, "a": 5 },
+  { "b": { "c": "pulkerton" }, "a": 4 },
+  { "b": { "c": "pulkerton" }, "a": 3 }
+]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.remove({a:{"$exists", true}})
+Output: Collection replaced successfully
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:2, b:3})
+Output:
+Explanation:
+-----------------------------------------------------------------------------------------------------
+::>test.c.insert({a:1, b:99})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:93939, b:9292})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:1, b:20})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:2, b:4})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.insert({a:93939, b:9291})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.aggregate({_id:"a", bsum:{"$sum":"b"}})
+Output: [
+  { "_id": 1, "bsum": 119 },
+  { "_id": 2, "bsum": 7 },
+  { "_id": 93939, "bsum": 18583 }
+]
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.aggregate({_id:"a", bsum:{"$sum":1}})
+Output: [
+  { "_id": 1, "bsum": 2 },
+  { "_id": 2, "bsum": 2 },
+  { "_id": 93939, "bsum": 2 }
+]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.aggregate({_id:"a", bmax:{"$max":b}})
+Output: [
+  { "_id": 1, "bmax": 99 },
+  { "_id": 2, "bmax": 4 },
+  { "_id": 93939, "bmax": 9292 }
+]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.aggregate({_id:"a", bmin:{"$min":"b"}})
+Output: [
+  { "_id": 1, "bmin": 20 },
+  { "_id": 2, "bmin": 3 },
+  { "_id": 93939, "bmin": 9291 }
+]
+
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
 
 
 
