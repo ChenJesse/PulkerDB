@@ -141,11 +141,12 @@ let rec index_modifier og_doc doc col = match doc with
       if index.id_name = k then
         let tree = index.keys in
         if Tree.member v !tree then
-          if ((Tree.find v !tree) = [`Null] && v <>`Null ||
+          if ((Tree.find v !tree) = [`Null] && v <> `Null ||
              ((Tree.find v !tree) = [`Int 0] && v <> `Int 0))
-          then tree:= Tree.insert v og_doc (!tree) true
-          else tree:= Tree.insert v og_doc (!tree) false
+          then tree := Tree.insert v og_doc (!tree) true
+          else tree := Tree.insert v og_doc (!tree) false
         else tree := Tree.insert v og_doc (!tree) false
+      else helper t
     in
     helper (snd col)
 
@@ -209,7 +210,7 @@ let rec tree_helper tree_list value =
     else tree_helper tl value
 
 let get_values value index_name col_name db_name =
-  let index_list = snd ((get_db db_name) |> get_col col_name) in
+  let index_list = snd (get_db db_name |> get_col col_name) in
   let index_tree  = get_index index_name index_list in
   let tree_as_list = Tree.to_list index_tree in
   tree_helper tree_as_list value
@@ -258,61 +259,20 @@ let comparator_json doc =
   | _ -> false
 
 (**
- * Given a doc (json), retrieves the function that
- * extracts the value into OCaml primitive
- *   - [doc1] is a doc
- *   - [doc2] is a doc
- *)
-let rec get_converter doc1 doc2 =
-  match doc1, doc2 with
-  | (`Bool _, `Bool _) -> ToBool(Util.to_bool)
-  | (`Float x, `Float y) -> ToFloat(Util.to_float)
-  | (`Int x, `Int y) -> ToInt(Util.to_int)
-  | (`String x, `String y) -> ToString(Util.to_string)
-  | (_,_) -> failwith "Types don't match"
-
-let unwrap_op op =
-  match op with
-  | Less -> (<)
-  | LessEq -> (<=)
-  | Greater -> (>)
-  | GreaterEq -> (>=)
-  | NotEq -> (<>)
-  | Eq -> (=)
-  | _ -> failwith "Shouldn't be here"
-
-let compare_int op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToInt x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare_bool op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToBool x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare_float op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToFloat x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare_string op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToString x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-(**
  * Compares doc1 and doc2, assuming they are the same primitive
  * type (int vs. int, string vs. string, etc.)
  *   - [doc1] is a doc
  *   - [doc2] is a doc
  *)
 let compare op doc1 doc2 =
-  match (get_converter doc1 doc2) with
-  | ToInt x -> compare_int op doc1 doc2 (ToInt(x))
-  | ToBool x -> compare_bool op doc1 doc2 (ToBool(x))
-  | ToString x -> compare_string op doc1 doc2 (ToString(x))
-  | ToFloat x -> compare_float op doc1 doc2 (ToFloat(x))
+  match op with
+  | Less -> doc1 < doc2
+  | LessEq -> doc1 <= doc2
+  | Greater -> doc1 > doc2
+  | GreaterEq -> doc1 >= doc2
+  | NotEq -> doc1 <> doc2
+  | Eq -> doc1 = doc2
+  | Exists -> failwith "Shouldn't be here"
 
 let parse_op str = match str with
   | "$lt" -> Some Less
@@ -853,20 +813,20 @@ let clear_env () = Hashtbl.reset environment
 let benchmarker () =
   let _ = create_db "benchmark_db" in
   let _ = create_col "benchmark_db" "col1" in
-  let _= create_col "benchmark_db" "col2" in
-  let json_list_1  = benchmark_json_gen 20000 [] in
+  let _ = create_col "benchmark_db" "col2" in
+  let json_list_1 = benchmark_json_gen 20000 [] in
   let json_list_2 = benchmark_json_gen 20000 [] in
   let index_doc = `Assoc[ ("a", `Assoc[("$exists", `Bool true)])] in
   let query_doc = `Assoc[ ("a", `Int 5); ("b", `Int 10)] in
-  List.map(fun f-> create_doc "benchmark_db" "col1" f) json_list_1;
-  List.map(fun f-> create_doc "benchmark_db" "col2" f) json_list_2;
+  List.map (fun f -> create_doc "benchmark_db" "col1" f) json_list_1;
+  List.map (fun f -> create_doc "benchmark_db" "col2" f) json_list_2;
   let _ = create_index "benchmark_db" "col2" "a" index_doc in
-  let t = Sys.time() in
+  let t = Sys.time () in
   let _ = query_col "benchmark_db" "col1" query_doc in
-  let time_query_1  = Sys.time() -. t in
-  let t_query_2 = Sys.time() in
+  let time_query_1  = Sys.time () -. t in
+  let t_query_2 = Sys.time () in
   let _ = query_col "benchmark_db" "col2" query_doc in
-  let time_query_2 = Sys.time() -. t_query_2 in
+  let time_query_2 = Sys.time () -. t_query_2 in
   Success ("The time to run query 1 was: " ^ (string_of_float time_query_1) ^
            " the time to run query 2 was: " ^ (string_of_float time_query_2))
 
