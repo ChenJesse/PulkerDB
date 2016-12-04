@@ -13,6 +13,8 @@ let help_msg = "
 
                       DATABASE COMMANDS
 ---------------------------------------------------------------
+| show()                                                      |
+| save()                                                      |
 | use DATABASE_NAME                                           |
 | use benchmark                                               |
 | db.dropDatabase()                                           |
@@ -71,4 +73,6 @@ let store_msg =
     Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
 
 let spacing = "    "
+
+let exiting_msg = "Persisting your changes, existing gracefully..."
 

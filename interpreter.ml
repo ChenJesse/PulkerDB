@@ -1,6 +1,7 @@
 open Yojson.Basic
 open Db
 open Persist
+open Models
 
 type tuple =
 | Nil
@@ -153,7 +154,8 @@ let parse input =
     match (Str.string_match (Str.regexp "use") i 0) with
     | true -> handle_use_db i
     | false ->
-      if input = "show" then show_catalog ()
+      if input = "show()" then show_catalog ()
+      else if input = "save()" then save_env ()
       else match (tuplize_input i) with
       | Triple (a, b, c) -> handle_triple a b c
       | Quad (a, b, c, d) -> handle_quad a b c d i

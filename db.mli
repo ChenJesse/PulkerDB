@@ -1,6 +1,7 @@
 open Yojson.Basic
 open Persist
 open Tree
+open Models
 
 type response = Success of string | Failure of string
 
@@ -159,6 +160,12 @@ val aggregate: string -> string -> doc -> response
 val clear_env : unit -> unit
 
 (**
+ * Persists environment
+ *)
+val save_env : unit -> response
+
+(**
  * Test only method for evaluating performance on database of 15000 items
  *)
  val benchmarker:  unit-> response
+

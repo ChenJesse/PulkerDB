@@ -2,6 +2,7 @@ open OUnit2
 open Interpreter
 open Db
 open Yojson.Basic
+open Models
 
 let interpreter_tests = [
   "dropDB" >:: (fun _ -> assert_equal (Triple("db", "dropDatabase", ""))
@@ -106,22 +107,22 @@ let db_tests = [
       (parse_json "{b: {c: {\"$ltt\": 6}, d: {\"$gt\": \"a\"}}}")));
 ]
 
-let empty_db : Persist.db = ((Hashtbl.create 5), true)
-let empty_db2 : Persist.db = ((Hashtbl.create 5), true)
-let empty_db3 : Persist.db = ((Hashtbl.create 5), true)
+let empty_db : db = ((Hashtbl.create 5), true)
+let empty_db2 : db = ((Hashtbl.create 5), true)
+let empty_db3 : db = ((Hashtbl.create 5), true)
 
 let test_doc = `Assoc( [("key", `String("value"))] )
-let test_col : Persist.col = (test_doc::[],[])
-let test_db : Persist.db = ((Hashtbl.create 5), true)
+let test_col : col = (test_doc::[],[])
+let test_db : db = ((Hashtbl.create 5), true)
 let () = Hashtbl.add (fst test_db) "test_col" test_col
 let test_env = Hashtbl.create 5
 let () = Hashtbl.add (test_env) "test_db" test_db
 
-let test_db2 : Persist.db = ((Hashtbl.create 5), true)
+let test_db2 : db = ((Hashtbl.create 5), true)
 let test_env2 = Hashtbl.create 5
 let () = Hashtbl.add test_env2 "test_db2" test_db2
 
-let test_col3 : Persist.col = ([],[])
+let test_col3 : col = ([],[])
 let test_db3 = ((Hashtbl.create 5), true)
 let () = Hashtbl.add (fst test_db3) "test_col3" test_col3
 let test_env3 = Hashtbl.create 5

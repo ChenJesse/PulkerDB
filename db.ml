@@ -1,6 +1,7 @@
 open Yojson.Basic
 open Persist
 open Tree
+open Models
 
 type response = Success of string | Failure of string
 
@@ -102,8 +103,11 @@ let persist_query response = match response with
     Success ("Output stored at " ^ file ^ ".\n" ^ json_string)
   | Failure x -> Failure x
 
+let save_env () = write_env environment; Success "Saved successfully!"
+
 (* -------------------------------CREATION------------------------------- *)
 
+<<<<<<< HEAD
 (**
  * Given a string representing name of db, checks for db with same name in
  * the environment, then checks if db exists in disk, and if so, loads it
@@ -111,6 +115,9 @@ let persist_query response = match response with
  * requires:
  *   - [db_name] is a string
  *)
+=======
+let new_dbs = ref []
+>>>>>>> a797be0a101675d17a20f20915d7acc5cf292324
 
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
@@ -119,10 +126,11 @@ let create_db db_name =
       let (empty_db:db) = (Hashtbl.create 100, false) in
       read_db db_name empty_db;
       add_db_env db_name empty_db;
-      Success "Database loaded into memory!"
+      Failure "Database with same name already exists"
     ) with
     | NotInDisc ->
       add_db_env db_name (Hashtbl.create 100, true);
+      new_dbs := db_name::(!new_dbs);
       Success "Database created successfully!"
     | _ -> Failure unexpected_error
 
@@ -537,8 +545,9 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let contents_list = Hashtbl.fold (fun k _ init -> k::init) environment [] in
-    let contents = stringify_list contents_list in
+    let persisted_dbs = Hashtbl.fold (fun k _ init -> k::init) environment [] in (* TODO: Replace with function instead of environment *)
+    let new_dbs = !new_dbs in 
+    let contents = new_dbs@persisted_dbs |> stringify_list in
     Success contents
   ) with
   | _ -> Failure unexpected_error
