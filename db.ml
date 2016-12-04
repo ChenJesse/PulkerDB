@@ -854,7 +854,7 @@ let update_col db_name col_name query_doc update_doc =
 
 let clear_env () = Hashtbl.reset environment
 
-let benchmarker ()=
+let benchmarker () =
   let _ = create_db "benchmark_db" in
   let _ = create_col "benchmark_db" "col1" in
   let _= create_col "benchmark_db" "col2" in

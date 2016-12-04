@@ -45,7 +45,7 @@ let handle_use_db input =
   let command = prefix ' ' input in
   let database = suffix ' ' input in
   match command with
-    | "use" -> if(database ="benchmark") then benchmarker () else (
+    | "use" -> if database = "benchmark" then benchmarker () else (
                   if (validate_name database) then create_db database
                   else raise ImproperNameError)
     | _ -> raise ParseError
