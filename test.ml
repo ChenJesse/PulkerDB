@@ -542,6 +542,26 @@ let end_to_end_tests = [
       parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
       parse "test.c.replace({a: 1}| {a: 1234})";
       parse "test.c.getindex({a:1234})"));
+ "test100" >:: (fun _ ->
+    assert_equal (Success
+      (json_printer "[{_id: 1, asdf: 101, fdsa: -4611686018427387904}, 
+        {_id: 2, asdf: 1000, fdsa: -4611686018427387904}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 100, c: [9]})";
+      parse "test.c.insert({a: 2, b: 1000, c: [999]})";
+      parse "test.c.insert({a: 1, b: 1, c: [999999]})";
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, 
+        fdsa: {\"$max\": \"c\"}})"));
+ "test101" >:: (fun _ ->
+    assert_equal (Success
+      (json_printer "[{_id: 1, asdf: 101, fdsa: 0}, 
+        {_id: 2, asdf: 1000, fdsa: 0}]"))
+    (clear_env(); parse "use test"; parse "test.createCollection(c)";
+      parse "test.c.insert({a: 1, b: 100, c: [9]})";
+      parse "test.c.insert({a: 2, b: 1000, c: [999]})";
+      parse "test.c.insert({a: 1, b: 1, c: [999999]})";
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, 
+        fdsa: {\"$sum\": \"c\"}})"));
 ]
 
 let suite =
