@@ -28,6 +28,7 @@ FEATURE OVERVIEW
 | show()                                                      |
 | save()                                                      |
 | use DATABASE_NAME                                           |
+| use benchmark                                               |
 | db.dropDatabase()                                           |
 | db.createCollection(COLLECTION_NAME)                        |
 | db.COLLECTION_NAME.drop()                                   |
