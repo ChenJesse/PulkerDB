@@ -427,14 +427,51 @@ Explanation:
 Output: The time to run query 1 was: 0.016 the time to run query 2 was: 0.
 Explanation: The non index using query took 0.016, the index using query took 0 (too fast)
 ------------------------------------------------------------------------------------------------------
-::>
+::>  test.c.drop()
+Output: Dropped collection successfully!
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.show()
+Output: empty
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.dropDatabase()
+Output:   Dropped database successfully!
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>  show()
+Output: empty
+Explanation:
+------------------------------------------------------------------------------------------------------
+::>  use test
 Output:
 Explanation:
 ------------------------------------------------------------------------------------------------------
-::>
+::>  test.createCollection(c)
 Output:
 Explanation:
 ------------------------------------------------------------------------------------------------------
-
-
-
+::>  test.c.insert({a:1})
+Output:
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> -exit
+Output: Persisting your changes, existing gracefully...
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> -exit
+Output: Persisting your changes, existing gracefully...
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> make pulker
+Output: Welcome to PulkerDB, a NoSQL database. Press -help for a list of commands.
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> use test
+Output: ERROR: Database with same name already exists
+Explanation:
+------------------------------------------------------------------------------------------------------
+::> test.c.show()
+Output: [ { "a": 1 } ]
+Explanation:
+------------------------------------------------------------------------------------------------------
