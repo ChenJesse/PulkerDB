@@ -125,6 +125,9 @@ let handle_triple a b c =
     else raise ImproperNameError
   | _ -> raise ParseError
 
+let call_param_func f a b pair = 
+  f a b (pair |> fst |> parse_json) (pair |> snd |> parse_json)
+
 (**
  * Handles all commands that are tuplized into 4 parts.
  *   - [a, b, c, d] are the components of a quad
@@ -133,19 +136,15 @@ let handle_triple a b c =
 let handle_quad a b c d i =
   match c with
   | "createindex" -> create_index_helper a b c d
-  | "drop" -> if d = "" then drop_col a b else raise ParseError
-  | "show" -> if d = "" then show_col a b |> store i else raise ParseError
-  | "insert" -> parse_json d |> create_doc a b
-  | "find" ->  parse_json d |> query_col a b |> store i
-  | "aggregate" -> parse_json d |> aggregate a b |> store i
-  | "remove" -> parse_json d |> remove_doc a b
-  | "replace" ->
-    (let pair = tuplize_parameters d in
-    replace_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
-  | "update" ->
-    (let pair = tuplize_parameters d in
-    update_col a b (pair |> fst |> parse_json) (pair |> snd |> parse_json))
-  | "getindex" -> get_index_helper a b c d
+  | "drop" ->        drop_col a b 
+  | "show" ->        show_col a b |> store i 
+  | "insert" ->      parse_json d |> create_doc a b
+  | "find" ->        parse_json d |> query_col a b |> store i
+  | "aggregate" ->   parse_json d |> aggregate a b |> store i
+  | "remove" ->      parse_json d |> remove_doc a b
+  | "replace" ->     tuplize_parameters d |> call_param_func replace_col a b
+  | "update" ->      tuplize_parameters d |> call_param_func update_col a b
+  | "getindex" ->    get_index_helper a b c d
   | _ -> raise ParseError
 
 let parse input =
