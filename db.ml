@@ -209,15 +209,6 @@ let rec tree_helper tree_list value =
     if value = k then Success (pretty_to_string (`List v))
     else tree_helper tl value
 
-(**
- * Returns the values associated with the specified key in the desired index
- * Returns empty list if nothing can be found.
- * requires:
- *       - [index_name] is a valid index in our collection
- *       - [value] is of type doc
- *       - [col_name] is the name of a valid collection in our database
- *       - [db_name] is the name of a database in our catalog
- *)
 let get_values value index_name col_name db_name =
   let index_list = snd ((get_db db_name) |> get_col col_name) in
   let index_tree  = get_index index_name index_list in
@@ -484,14 +475,7 @@ let key_set tbl =
   let final_list = extract_keys list_tbl [] in
   Array.of_list final_list
 
-(**
- * Given the database, collection, desired index_name and querydoc, creates a index.
- * requires:
- *      - [db_name] is the string
- *      - [col_name] is the string
- *      - index_name is the string representation of a index in our collection
- *      - query_doc is of type `Assoc
- *)
+
 let create_index db_name col_name index_name query_doc =
   let db = db_name |> get_db in
   let col = db |> get_col col_name in

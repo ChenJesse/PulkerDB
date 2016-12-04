@@ -15,7 +15,7 @@ exception ParseError
 exception ImproperNameError
 exception ParseDocError
 
-let parse_json json_string = try (from_string json_string) with 
+let parse_json json_string = try (from_string json_string) with
   | _ -> raise ParseDocError
 
 (* Trims white space, convert to lowercase *)
@@ -37,15 +37,16 @@ let suffix c input = ((String.length input) - ((String.index input c) + 1))
     |> String.sub input ((String.index input c) + 1)
 
 (**
- * Handles the logic for a 'use db' command. 
+ * Handles the logic for a 'use db' command.
  *   - [input] is a sanitized input from parse
  *)
 let handle_use_db input =
   let command = prefix ' ' input in
   let database = suffix ' ' input in
   match command with
-    | "use" -> if (validate_name database) then create_db database
-               else raise ImproperNameError
+    | "use" -> if(database ="benchmark") then benchmarker () else (
+                  if (validate_name database) then create_db database
+                  else raise ImproperNameError)
     | _ -> raise ParseError
 
 let tuplize_input input =
@@ -58,7 +59,7 @@ let tuplize_input input =
       let (add, remainder) =
         if (String.get i 0) = '(' then ((rprefix ')' i |> suffix '('), "")
         else if (String.contains i '.') then ((prefix '.' i), (suffix '.' i))
-        else if (String.contains i '(') then 
+        else if (String.contains i '(') then
           ((prefix '(' i), ("(" ^ (suffix '(' i)))
         else (i, "")
       in
@@ -78,43 +79,43 @@ let tuplize_input input =
 let tuplize_parameters input = (prefix '|' input, suffix '|' input)
 
 (**
- * Handles the logic for a 'createIndex' command. 
+ * Handles the logic for a 'createIndex' command.
  *   - [a, b, c, d] are the components of a quad
  *)
-let create_index_helper a b c d = 
+let create_index_helper a b c d =
   match parse_json d with
-  | `Assoc lst -> 
-    let (f, g) = List.hd lst in 
+  | `Assoc lst ->
+    let (f, g) = List.hd lst in
     let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
     create_index a b f query_doc
   | _ -> raise ParseError
 
 (**
- * Handles the logic for a 'getIndex' command. 
+ * Handles the logic for a 'getIndex' command.
  *   - [a, b, c, d] are the components of a quad
  *)
-let get_index_helper a b c d = 
+let get_index_helper a b c d =
   match parse_json d with
-  | `Assoc lst -> 
-    let (f, g) = List.hd lst in 
+  | `Assoc lst ->
+    let (f, g) = List.hd lst in
     get_values g f b a
   | _ -> raise ParseError
 
 (**
- * Checks for the -s flag, that signals that the output must be 
+ * Checks for the -s flag, that signals that the output must be
  * stored in a json
  *   - [i] is the sanitized input from parse
  *   - [response] is the normal response from parse
  *)
-let store i response = 
-  let flagged = (String.contains i '-') && (suffix '-' i) = "s" in 
+let store i response =
+  let flagged = (String.contains i '-') && (suffix '-' i) = "s" in
   if flagged then response |> persist_query else response
 
 (**
  * Handles all commands that are tuplized into 3 parts.
  *   - [a, b, c] are the components of a triple
  *)
-let handle_triple a b c = 
+let handle_triple a b c =
   match b with
   | "show" -> if c = "" then show_db a else raise ParseError
   | "dropdatabase" -> if c = "" then drop_db a else raise ParseError
@@ -128,7 +129,7 @@ let handle_triple a b c =
  *   - [a, b, c, d] are the components of a quad
  *   - [i] is the sanitized input from parse
  *)
-let handle_quad a b c d i = 
+let handle_quad a b c d i =
   match c with
   | "createindex" -> create_index_helper a b c d
   | "drop" -> if d = "" then drop_col a b else raise ParseError
@@ -154,12 +155,12 @@ let parse input =
     | false ->
       if input = "show" then show_catalog ()
       else match (tuplize_input i) with
-      | Triple (a, b, c) -> handle_triple a b c 
-      | Quad (a, b, c, d) -> handle_quad a b c d i 
+      | Triple (a, b, c) -> handle_triple a b c
+      | Quad (a, b, c, d) -> handle_quad a b c d i
     | _ -> failwith "Improper tuple"
   ) with
-  | ParseDocError -> 
-    Failure "Invalid document provided. 
+  | ParseDocError ->
+    Failure "Invalid document provided.
             Refer to documentation in -help for more information."
   | ParseError -> Failure "Invalid command input."
   | ImproperNameError -> Failure "Invalid database or collection name."

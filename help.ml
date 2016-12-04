@@ -14,6 +14,7 @@ let help_msg = "
                       DATABASE COMMANDS
 ---------------------------------------------------------------
 | use DATABASE_NAME                                           |
+| use benchmark                                               |
 | db.dropDatabase()                                           |
 | db.createCollection(COLLECTION_NAME)                        |
 | db.COLLECTION_NAME.drop()                                   |
@@ -48,7 +49,7 @@ let update_doc_msg =
 
 let agg_doc_msg =
   "An aggregation document.
-    A general document that must have an \"_id\" field with a string value designating the attribute to group by, 
+    A general document that must have an \"_id\" field with a string value designating the attribute to group by,
     and pairs of this structure: {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method ($sum, $max, or $min),
     and z is the field name of what you want to aggregate on."
 
