@@ -26,8 +26,8 @@ val create_doc : string -> string -> doc -> response
 val persist_query : response -> response
 
 (**
- * Given a string representing name of db, checks for db with same name in 
- * the environment, then checks if db exists in disk, and if so, loads it 
+ * Given a string representing name of db, checks for db with same name in
+ * the environment, then checks if db exists in disk, and if so, loads it
  * into memory. Otherwise, Creates the db.
  * requires:
  *   - [db_name] is a string
@@ -44,7 +44,7 @@ val create_db : string -> response
 val create_col : string -> string -> response
 
 (**
- * Drops anything in the specified collection that satisfies the query_doc. 
+ * Drops anything in the specified collection that satisfies the query_doc.
  * Changes should persist if the database is saved.
  *   - [db_name] is a string
  *   - [col_name] is a string
@@ -54,7 +54,7 @@ val remove_doc : string -> string -> doc -> response
 
 (**
  * Given a doc representing criteria to query on, removes all appropriate docs,
- * and then inserts the given doc. 
+ * and then inserts the given doc.
  *   - [db_name] is a string
  *   - [col_name] is a string
  *   - [query_doc] is a doc conforming to structure specified in help.ml
@@ -72,22 +72,39 @@ val replace_col : string -> string -> doc -> doc -> response
 val update_col : string -> string -> doc -> doc -> response
 
 (**
- * Given a string representing name of db, drops the db in the environment, 
+ * Given a string representing name of db, drops the db in the environment,
  * and should drop the db in disk if the database is saved.
  *   - [db_name] is a string
  *)
 val drop_db : string -> response
 
 (**
- * Given a string representing name of db and col, drops the col 
+ * Given a string representing name of db and col, drops the col
  * in the environment, and should drop the col in disk if the database is saved.
  *   - [db_name] is a string
  *   - [col_name] is a string
  *)
 val drop_col : string -> string -> response
 
+(**
+ * Given the database, collection, desired index_name and querydoc, creates a index.
+ * requires:
+ *      - [db_name] is the string
+ *      - [col_name] is the string
+ *      - [index_name] is the string representation of a index in our collection
+ *      - [query_doc] is of type `Assoc
+ *)
 val create_index: string -> string -> string -> Yojson.Basic.json -> response
 
+(**
+ * Returns the values associated with the specified key in the desired index
+ * Returns empty list if nothing can be found.
+ * requires:
+ *       - [index_name] is a valid index in our collection
+ *       - [value] is of type doc
+ *       - [col_name] is the name of a valid collection in our database
+ *       - [db_name] is the name of a database in our catalog
+ *)
 val get_values: Yojson.Basic.json -> string -> string -> string -> response
 
 (**
@@ -104,8 +121,8 @@ val show_col: string -> string -> response
  *)
 val show_db: string -> response
 
-(** 
- * Prints out all the databases that are loaded into memory so far 
+(**
+ * Prints out all the databases that are loaded into memory so far
  *)
 val show_catalog: unit -> response
 
@@ -128,7 +145,7 @@ val check_doc : doc -> doc -> bool
 
 (**
  * Handles the aggregation logic on a collection.
- * Example: 
+ * Example:
  * db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})
  *   - [db_name] is a string
  *   - [col_name] is a string
@@ -140,3 +157,8 @@ val aggregate: string -> string -> doc -> response
  * Test only method to reset the entire environment
  *)
 val clear_env : unit -> unit
+
+(**
+ * Test only method for evaluating performance on database of 15000 items
+ *)
+ val benchmarker:  unit-> response
