@@ -198,6 +198,7 @@ let create_col db_name col_name =
     | true -> Failure (col_name ^ " already exists.")
     | false ->
         Hashtbl.add (fst db) col_name ([],[]);
+        set_dirty db_name;
         Success "Collection created successfully!"
   ) with
   | LocateDBException -> Failure (db_find_error db_name)

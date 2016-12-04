@@ -28,10 +28,11 @@ type catalog = (string, db) Hashtbl.t
 
 exception NotInDisc
 
-val output_name : int ref
-
+(* Given a json representing the output of a query,
+ * writes it to the Output folder *)
 val write_query_json : Yojson.Basic.json -> unit
 
+(* Removes a db from disc by name, deleting its folder and json files *)
 val remove_db: string -> unit
 
 (*
@@ -67,3 +68,6 @@ val read_collection: string -> string -> col
  * to the ref
  *)
 val read_db: string -> db -> unit
+
+(* Prints all the persisted dbs *)
+val show_persisted: unit -> unit
