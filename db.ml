@@ -108,9 +108,6 @@ let save_env () = write_env environment; Success "Saved successfully!"
 
 (* -------------------------------CREATION------------------------------- *)
 
-
-let new_dbs = ref []
-
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
   | true -> Failure "Database with same name already exists"
@@ -122,7 +119,6 @@ let create_db db_name =
     ) with
     | NotInDisc ->
       add_db_env db_name (Hashtbl.create 100, true);
-      new_dbs := db_name::(!new_dbs);
       Success "Database created successfully!"
     | _ -> Failure unexpected_error
 
@@ -494,9 +490,11 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let persisted_dbs = show_persisted () in
-    let new_dbs = !new_dbs in
-    let contents = new_dbs@persisted_dbs |> stringify_list in
+    let memory_dbs = key_set environment |> Array.to_list in 
+    let persisted_dbs = show_persisted () in 
+    let combined_dbs = 
+      (memory_dbs@persisted_dbs) |> List.sort_uniq (String.compare) in 
+    let contents = combined_dbs |> stringify_list in
     Success contents
   ) with
   | _ -> Failure unexpected_error
