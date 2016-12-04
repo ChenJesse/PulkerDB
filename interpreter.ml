@@ -87,7 +87,7 @@ let create_index_helper a b c d =
   match parse_json d with
   | `Assoc lst ->
     let (f, g) = List.hd lst in
-    let query_doc = `Assoc [(f, `Assoc[("$exists", `Bool true)])] in
+    let query_doc = `Assoc [(f, `Assoc[("_exists", `Bool true)])] in
     create_index a b f query_doc
   | _ -> raise ParseError
 
