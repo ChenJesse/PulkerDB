@@ -8,24 +8,97 @@ let help_msg = "
 | -agg_doc : Information on format for AGG_DOC                |
 | -index_doc : Information on format for INDEX_DOC            |
 | -indkey_doc : Information on format for INDKEY_DOC          |
+| -store : Information on the store flag                      |
 ---------------------------------------------------------------
 
                       DATABASE COMMANDS
 ---------------------------------------------------------------
-| use DATABASE_NAME                                           |
-| db.dropDatabase()                                           |
-| db.createCollection(COLLECTION_NAME)                        |
-| db.COLLECTION_NAME.drop()                                   |
-| db.COLLECTION_NAME.insert(GEN_DOC)                          |
-| db.COLLECTION_NAME.find()                                   |
-| db.COLLECTION_NAME.show()                                   |
-| db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)             |
-| db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC)           |
-| db.COLLECTION_NAME.remove(QUERY_DOC)                        |
-| db.COLLECTION_NAME.aggregate(AGG_DOC)                       |
-| db.COLLECTION_NAME.createIndex(INDEX_DOC)                   |
-| db.COLLECTION_NAME.getIndex(INDEX_DOC)                      |
+|                     COMMAND                       |   INFO  |
+---------------------------------------------------------------
+| show()                                            |  -show  |
+| save()                                            |  -save  |
+| use DATABASE_NAME                                 |  -usdb  |
+| use benchmark                                     |  -usbm  |
+| db.dropDatabase()                                 |  -drdb  |
+| db.show()                                         |  -dbsh  | 
+| db.createCollection(COLLECTION_NAME)              |  -ccol  |
+| db.COLLECTION_NAME.drop()                         |  -drcl  |
+| db.COLLECTION_NAME.insert(GEN_DOC)                |  -isrt  |
+| db.COLLECTION_NAME.find(QUERY_DOC)                |  -find  |
+| db.COLLECTION_NAME.show()                         |  -clsh  |
+| db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)   |  -repl  |
+| db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC) |  -updt  |
+| db.COLLECTION_NAME.remove(QUERY_DOC)              |  -rmve  |
+| db.COLLECTION_NAME.aggregate(AGG_DOC)             |  -aggr  |
+| db.COLLECTION_NAME.createIndex(INDEX_DOC)         |  -cidx  |
+| db.COLLECTION_NAME.getIndex(INDEX_DOC)            |  -gidx  |
 --------------------------------------------------------------- \n"
+
+let show_msg = 
+  "Shows all the existing databases."
+
+let save_msg = 
+  "Persists the environment to disk."
+
+let usdb_msg = 
+  "Attempts to create the specified database. Will fail if database already exists with the same name."
+
+let usbm_msg = "Method for evaluating performance on database of 15000 items."
+
+let drdb_msg = 
+  "Attempts to drop an existing database. Will fail if database does not exist."
+
+let dbsh_msg = 
+  "Shows all the existing collections in the specified database."
+
+let ccol_msg = 
+  "Creates a collection in the specified database. Will fail if a collection already exists with the same name in the database."
+
+let drcl_msg = 
+  "Drops a collection in the specified database. Will fail if collection does not exist."
+
+let isrt_msg = 
+  "Inserts a document in the specified collection, in the specified database. 
+    Note that duplicate documents are permitted. 
+    Enter -gen_doc for more information."
+
+let find_msg = 
+  "Searches the specified collection for documents conforming to the query_doc's requirements. 
+    Note that if a document does not contain one of the specified fields in the query_doc, it will be treated as not satisfying the query_doc.
+    Note that a document must have all of the specified fields in the query_doc.
+    Note that arrays are unfortunately not supported in querying. 
+    Enter query_doc for more information."
+
+let clsh_msg = 
+  "Shows all the documents that exist in the collection."
+
+let repl_msg = 
+  "Chains together a remove operation, and an insert operation. Enter -query_doc or -gen_doc for more information."
+
+let updt_msg = 
+  "Will update all the documents retrieved from the query_doc, according to the update_doc. 
+    Note that if the document does not already have a field to be updated, the field will be created.
+    Enter -query_doc or -update_doc for more information."
+
+let rmve_msg = 
+  "Will remove all the documents that satisfy the query_doc. Enter -query_doc for more information."
+
+let aggr_msg = 
+  "Will aggregate the collection based on the agg_doc, and return the information in document form. 
+    An aggregation operation consists of a group_by phase, and then aggregation operations on one or more fields.
+    IMPORTANT: Aggregations are supported only for integers.
+    Note that in the case where $sum has no luck aggregating the desired fields, it will return 0.
+    Note that in the case where $max has no luck aggregating the desired fields, it will return -4611686018427387904.
+    Note that in the case where $min has no luck aggregating the desired fields, it will return 4611686018427387904.
+    Enter -agg_doc for more information."
+
+let cidx_msg = 
+  "Given a field that exists in the specified collection, will create an ascending index
+    on that field. See -index_doc for proper field formatting."
+
+let gidx_msg = 
+  "Given an index that exists in our collection, and a key that exists for the specified index,
+    return the list of JSON's associated with that key."
 
 let gen_doc_msg =
   "A general document.
@@ -47,8 +120,8 @@ let update_doc_msg =
 
 let agg_doc_msg =
   "An aggregation document.
-    A general document that must have an \"_id\" field designating the attribute to group by, and pairs of this structure:
-    {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method ($sum, $max, or $min),
+    A general document that must have an \"_id\" field with a string value designating the attribute to group by,
+    and pairs of this structure: {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method ($sum, $max, or $min),
     and z is the field name of what you want to aggregate on."
 
 let index_doc_msg =
@@ -64,9 +137,11 @@ let indkey_doc_msg =
 
 let store_msg =
   "If you wish to pipe the results of your query to a json file, end your command with the -s flag.
-  The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
-  Flagging inappropriate commands will have no effect.
-  Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
+    The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
+    Flagging inappropriate commands will have no effect.
+    Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
 
 let spacing = "    "
+
+let exiting_msg = "Persisting your changes, existing gracefully..."
 

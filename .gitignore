@@ -24,3 +24,6 @@ setup.log
 
 # ds_store
 .DS_Store
+
+Persist/
+Output/

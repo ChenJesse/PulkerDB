@@ -1,31 +1,4 @@
-(**
- * Taken from Yojson.Basic documentation:
- * type json = [ `Assoc of (string * json) list
- *             | `Bool of bool
- *             | `Float of float
- *             | `Int of int
- *             | `List of json list
- *             | `Null
- *             | `String of string ]
- *)
-
-open Tree
-
-type doc = Yojson.Basic.json
-
-type index_file = {
-  id_name: string;
-  id_table: (Yojson.Basic.json, Yojson.Basic.json) Hashtbl.t;
-  keys: Yojson.Basic.json tree ref
-}
-
-type index_list = index_file list
-
-type col = doc list * index_list
-
-type db = (string, col) Hashtbl.t * bool
-
-type catalog = (string, db) Hashtbl.t
+open Models
 
 exception NotInDisc
 
@@ -44,7 +17,8 @@ let write_query_json json =
   let filename = string_of_int (!output_name) in
   output_name := !output_name + 1;
   let filepath = "Output/" ^ filename ^ ".json" in
-  Yojson.Basic.to_file filepath json
+  Yojson.Basic.to_file filepath json; 
+  filepath
 
 (* [col filename] Given a filename, returns true if filename is a
  * collection ie ends with .json file extension

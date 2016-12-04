@@ -1,6 +1,7 @@
 open Yojson.Basic
 open Persist
 open Tree
+open Models
 
 type response = Success of string | Failure of string
 
@@ -24,9 +25,17 @@ type opWrapper = Less | LessEq | Greater | GreaterEq | NotEq | Eq | Exists
 let environment : catalog = Hashtbl.create 20
 
 (* ------------------------------HELPERS------------------------------ *)
+
 let add_db_env db_name db = Hashtbl.add environment db_name db
 
-let get_db db_name : db =
+(**
+ * Returns database with db_name in the environment. On failure,
+ * goes to disk and tries to load a persisted db under the same name,
+ * and then return it. On failure, raises exception.
+ * requires:
+ *   - [db_name] is a string
+ *)
+let get_db db_name =
   try (
     try (Hashtbl.find environment db_name) with
       | _ ->
@@ -36,49 +45,71 @@ let get_db db_name : db =
   ) with
   | _ -> raise LocateDBException
 
-let get_col (col:string) (db:db) : col =
+(**
+ * Retrieves the collection object with name col, given the db.
+ * requires:
+ *   - [col_name] is a string
+ *   - [db] is a db
+ *)
+let get_col col_name db =
   try (
     let cols = db |> fst in
-    Hashtbl.find cols col
+    Hashtbl.find cols col_name
   )
   with
   | _ -> raise LocateColException
 
+(**
+ * To be called when a database is modified, to flag that db as
+ * dirty, so that on persist, we know to re-save that db.
+ * requires:
+ *   - [db_name] is a string
+ *)
 let set_dirty db_name =
   let (db, _) = get_db db_name in
   Hashtbl.replace environment db_name (db, true)
 
+(**
+ * Given a list, will print a string based on the contents of the
+ * list, with each element wrapped in brackets.
+ * requires:
+ *   - [lst] is a list of strings
+ *)
 let stringify_list lst =
   List.fold_left (fun acc ele -> acc ^ " [" ^ ele ^ "]") "" lst
 
-let trpl_fst t = match t with
-  | (a, _, _) -> a
-
-let trpl_snd t = match t with
-  | (_, b, _) -> b
-
-let compareJSON a b =
+(**
+ * Given two docs, a and b will print 0, 1, or -1 depending on whether A
+ * is = > or < to B
+ * requires:
+ *   - [a] is of type doc with the structure specified in help.ml
+ *   - [b]] is of type doc with the structure specified in help.ml
+ *)
+let compare_docs a b =
   if a > b then 1
   else if a < b then -1
   else 0
 
 (**
- * Function for sorting keys of my index in increasing order
+ * Given an array of docs, sorts in ascending order
+ * requires:
+ *   - [arr] is an array of docs
  *)
-let key_sort arr = Array.sort compareJSON arr
+let key_sort arr = Array.sort compare_docs arr
 
 let persist_query response = match response with
   | Success json_string ->
-    (json_string |> from_string |> Persist.write_query_json);
-    Success json_string
+    let file = json_string |> from_string |> write_query_json in
+    Success ("Output stored at " ^ file ^ ".\n" ^ json_string)
   | Failure x -> Failure x
+
+let save_env () = write_env environment; Success "Saved successfully!"
 
 (* -------------------------------CREATION------------------------------- *)
 
-(**
- * Given a string representing name of db, creates a db in the environment.
- * On failure, return false. On success, return true.
- *)
+
+let new_dbs = ref []
+
 let create_db db_name =
   match (Hashtbl.mem environment db_name) with
   | true -> Failure "Database with same name already exists"
@@ -86,15 +117,20 @@ let create_db db_name =
       let (empty_db:db) = (Hashtbl.create 100, false) in
       read_db db_name empty_db;
       add_db_env db_name empty_db;
-      Success "Database loaded into memory!"
+      Failure "Database with same name already exists"
     ) with
     | NotInDisc ->
       add_db_env db_name (Hashtbl.create 100, true);
+      new_dbs := db_name::(!new_dbs);
       Success "Database created successfully!"
     | _ -> Failure unexpected_error
 
 (**
  * Adds og_doc to a index if one is found. Otherwise return nothing
+ * requires:
+ *    - [og_doc] is a doc
+ *    - [doc] is a list of `Assoc
+ *    - [col] is of type collection
  *)
 let rec index_modifier og_doc doc col = match doc with
   | [] -> ()
@@ -105,17 +141,22 @@ let rec index_modifier og_doc doc col = match doc with
       if index.id_name = k then
         let tree = index.keys in
         if Tree.member v !tree then
-          if ((Tree.find v !tree) = [`Null] && v <>`Null ||
+          if ((Tree.find v !tree) = [`Null] && v <> `Null ||
              ((Tree.find v !tree) = [`Int 0] && v <> `Int 0))
-          then tree:= Tree.insert v og_doc (!tree) true
-          else tree:= Tree.insert v og_doc (!tree) false
+          then tree := Tree.insert v og_doc (!tree) true
+          else tree := Tree.insert v og_doc (!tree) false
         else tree := Tree.insert v og_doc (!tree) false
+      else helper t
     in
     helper (snd col)
 
 (**
  * Given the doc, update the index
  * if that doc's attribute matches a declared index field.
+ * requires:
+ *      - [ogDoc] is of type doc
+ *      - [doc] is a list of `Assoc
+ *      - [col] is of type collection
  *)
 let rec index_updater ogDoc doc col = match doc with
   |`Assoc a -> (
@@ -126,19 +167,26 @@ let rec index_updater ogDoc doc col = match doc with
   |_ -> ()
 
 (**
- * Generate json with ascending values based on input len
+ * Generate json with ascending values based on input len.
+ * requires:
+ *     - [len] is a int of value >=0
+ *     - [lst] is a list of docs
  *)
-let benchmarkJSONGen len (lst:doc list) =
+let benchmark_json_gen len lst =
   let rec helper lent lst_p ctr =
-  if ((List.length lst_p) > lent) then lst_p
+  if ((List.length lst_p) >= lent) then lst_p
   else
     let new_doc = `Assoc[("a", `Int ctr); ("b", `Int (ctr * 2))] in
     helper lent (new_doc::lst_p) (ctr + 1)
   in helper len lst 0
 
+
 (**
  * Returns the tree associated with the specified index in the index desired.
  * Returns empty if no index can be found.
+ * requires:
+ *      - [index_name] is of type string and is a valid index
+ *      - [index] is of type index_file list
  *)
 let rec get_index index_name index =
   match index with
@@ -149,6 +197,10 @@ let rec get_index index_name index =
 (**
  * Run through the tree you were provided and return
  * value list for the key that matches value.
+ * requires:
+ *       - [tree_list] is a list of keys and values associated in
+ *          the index tree.
+ *       - [value] is of the same value and type as a key in the tree list.
  *)
 let rec tree_helper tree_list value =
   match tree_list with
@@ -157,20 +209,13 @@ let rec tree_helper tree_list value =
     if value = k then Success (pretty_to_string (`List v))
     else tree_helper tl value
 
-(**
- * Returns the values associated with the specified key in the desired index
- * Returns empty list if nothing can be found.
- *)
 let get_values value index_name col_name db_name =
-  let index_list = snd ((get_db db_name) |> get_col col_name) in
+  let index_list = snd (get_db db_name |> get_col col_name) in
   let index_tree  = get_index index_name index_list in
   let tree_as_list = Tree.to_list index_tree in
   tree_helper tree_as_list value
 
-(**
- * Given a string representation of JSON, creates a doc in the environment.
- * On failure, return false. On success, return true.
- *)
+
 let create_doc db_name col_name doc =
   try (
     let db = get_db db_name in
@@ -187,10 +232,6 @@ let create_doc db_name col_name doc =
   | LocateColException -> Failure (col_find_error col_name)
   | _ -> Failure unexpected_error
 
-(**
- * Given a string representing name of col, creates a col in the environment.
- * On failure, return false. On success, return true.
- *)
 let create_col db_name col_name =
   try (
     let db = get_db db_name in
@@ -205,6 +246,7 @@ let create_col db_name col_name =
   | _ -> Failure unexpected_error
 
 (* -------------------------------QUERYING-------------------------------- *)
+
 (* Returns true if the doc is a nested json*)
 let nested_json doc =
   match doc with
@@ -218,52 +260,20 @@ let comparator_json doc =
   | _ -> false
 
 (**
- * Given a doc (json), extracts the value into OCaml primitive
+ * Compares doc1 and doc2, assuming they are the same primitive
+ * type (int vs. int, string vs. string, etc.)
+ *   - [doc1] is a doc
+ *   - [doc2] is a doc
  *)
-let rec get_converter (doc1 : doc) (doc2 : doc) =
-  match doc1, doc2 with
-  | (`Bool _, `Bool _) -> ToBool(Util.to_bool)
-  | (`Float x, `Float y) -> ToFloat(Util.to_float)
-  | (`Int x, `Int y) -> ToInt(Util.to_int)
-  | (`String x, `String y) -> ToString(Util.to_string)
-  | (_,_) -> failwith "Types don't match"
-
-let unwrap_op op =
+let compare op doc1 doc2 =
   match op with
-  | Less -> (<)
-  | LessEq -> (<=)
-  | Greater -> (>)
-  | GreaterEq -> (>=)
-  | NotEq -> (<>)
-  | Eq -> (=)
-  | _ -> failwith "Shouldn't be here"
-
-let compare_int op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToInt x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare_bool op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToBool x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare_float op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToFloat x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare_string op (doc1 : doc) (doc2 : doc) converter =
-  match converter with
-  | ToString x -> (unwrap_op op) (x doc1) (x doc2)
-  | _ -> failwith "Incorrect converter"
-
-let compare op item1 item2 =
-  match (get_converter item1 item2) with
-  | ToInt x -> compare_int op item1 item2 (ToInt(x))
-  | ToBool x -> compare_bool op item1 item2 (ToBool(x))
-  | ToString x -> compare_string op item1 item2 (ToString(x))
-  | ToFloat x -> compare_float op item1 item2 (ToFloat(x))
+  | Less -> doc1 < doc2
+  | LessEq -> doc1 <= doc2
+  | Greater -> doc1 > doc2
+  | GreaterEq -> doc1 >= doc2
+  | NotEq -> doc1 <> doc2
+  | Eq -> doc1 = doc2
+  | Exists -> failwith "Shouldn't be here"
 
 let parse_op str = match str with
   | "$lt" -> Some Less
@@ -279,7 +289,11 @@ let parse_op str = match str with
  * collectionTree is the index for the attribute specified.
  * This needs to parse the query and figure out what type of query it is.
  * Depending on what type of query it is,
- * it will then call traverse with certain bounds on the tree *)
+ * it will then call traverse with certain bounds on the tree.
+ * requires:
+ *   - [col_tree] is a index tree
+ *   - [query_doc] is a list of `Assoc
+ *)
 let index_query_builder col_tree query_doc =
   let rec helper col_tree query_doc = match query_doc with
     | h::t -> (
@@ -305,15 +319,11 @@ let index_query_builder col_tree query_doc =
       | Some Eq -> failwith unexpected_error
       | None -> match (nested_json (snd h)) with
         | true -> (
-          (* We have a doc as the value, need to recurse *)
-          (* Represents the nested doc in the query_doc *)
           let nested = match (snd h) with
             | `Assoc lst -> lst
             | _ -> failwith unexpected_error in
-          (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
           if h |> snd |> comparator_json then helper col_tree nested else []
         )
-        (* We have an equality check *)
         | false -> find (snd h) col_tree
       )
     | _ -> failwith unexpected_error
@@ -340,18 +350,15 @@ let check_doc doc query_doc =
       (try (compare op item1 item2)
       with | _ -> false)
     | None -> (match (nested_json (snd h)) with
-      | true -> (* We have a doc as the value, need to recurse *)
-        (* Represents the nested doc in the query_doc *)
+      | true ->
         let nested = match (snd h) with
           | `Assoc lst -> lst
           | _ -> failwith "Can't be here" in
-        (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
         if (comparator_json (snd h)) then helper doc nested (fst h) true
-        |> helper doc t p_key
-        (* If it's a normal JSON, we only recurse a level in on doc and query_doc *)
+          |> helper doc t p_key
         else (try (helper (Util.member (fst h) doc) nested (fst h) true
               |> helper doc t p_key) with | _ -> false)
-      | false -> (* We have a simple equality check *)
+      | false ->
         let item1 = Util.member (fst h) doc in
         let item2 = snd h in
         (try (compare Eq item1 item2 |> helper doc t p_key)
@@ -367,7 +374,10 @@ let check_doc doc query_doc =
 * IF there are, we want to get teh docs associated with this query from the index
 * And return those after converting to a normal doc list.
 * Otherwise, continue and ultimately just
-* return whatever the collection's list of docs are if no index can be matched
+* return whatever the collection's list of docs are if no index can be matched.
+* requires:
+*   - [col] is of type collection
+*   - [query_list] is a list of type doc
 *)
 let index_checker col query_list =
   let docs = ref [] in
@@ -383,11 +393,6 @@ let index_checker col query_list =
   if !docs = [] then docs := (fst col);
   !docs
 
-(**
- * Given a string representing a query JSON, looks for matching docs in
- * the environment.
- * On failure, return false. On success, return true.
- *)
 let query_col db_name col_name query_doc =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
@@ -399,12 +404,15 @@ let query_col db_name col_name query_doc =
   ) with
   | InvalidQueryDocException ->
     Failure "Invalid query doc. Refer to -query_doc for more information."
-  | LocateDBException -> Failure(db_find_error db_name)
-  | LocateColException -> Failure(col_find_error col_name)
+  | LocateDBException -> Failure (db_find_error db_name)
+  | LocateColException -> Failure (col_find_error col_name)
   | _ -> Failure unexpected_error
 
 (**
  * Extract all the keys associated with this List, removing duplicates as we go.
+ * requires:
+ *   - [list_tbl] is a list representation of a hashtable
+ *   - [key_list] is a list of type doc
  *)
 let rec extract_keys list_tbl key_list =
   match list_tbl with
@@ -415,15 +423,15 @@ let rec extract_keys list_tbl key_list =
 
 (**
  * Return the keySet for my hashtable, tbl. That is, a set with only unique keys.
+ * requires:
+ *   - tbl is a hashtable.
  *)
 let key_set tbl =
   let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
   let final_list = extract_keys list_tbl [] in
   Array.of_list final_list
 
-(**
- * Given the database, collection, desired index_name and querydoc, creates a index
- *)
+
 let create_index db_name col_name index_name query_doc =
   let db = db_name |> get_db in
   let col = db |> get_col col_name in
@@ -447,6 +455,11 @@ let create_index db_name col_name index_name query_doc =
 
 (**
  * Given a remove operation, updates the index tree to reflect new state.
+ * requires:
+ *   - [db_name] is the string
+ *   - [col_name] is the string
+ *   - [index_list] is a list of index_file
+ *   - [new_list] is a list of index_file
  *)
 let rec recreate_index db_name col_name index_list new_list=
   match index_list with
@@ -457,10 +470,7 @@ let rec recreate_index db_name col_name index_list new_list=
       let new_index_list = (snd) (db_name |> get_db |> get_col col_name) in
       let newTree = get_index name new_index_list in
       {id_name = name; id_table = idtable; keys = ref(newTree)}::new_list
-(**
- * Given a string representing name of col, shows a col in the environment.
- * On failure, return false. On success, return true.
- *)
+
 let show_col db_name col_name =
   try (
     let col = db_name |> get_db |> get_col col_name in
@@ -483,50 +493,85 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let contents_list = Hashtbl.fold (fun k _ init -> k::init) environment [] in
-    let contents = stringify_list contents_list in
+    let persisted_dbs = Hashtbl.fold (fun k _ init -> k::init) environment [] in (* TODO: Replace with function instead of environment *)
+    let new_dbs = !new_dbs in
+    let contents = new_dbs@persisted_dbs |> stringify_list in
     Success contents
   ) with
   | _ -> Failure unexpected_error
 
 (* ------------------------------AGGREGATION-------------------------------- *)
 
+(**
+ * Returns a hashtable, with all the documents in the specified db.col
+ * in buckets, based off of the given attribute. If a doc does not
+ * have the specified attribute, then don't add it to the hashtable.
+ *   - [db_name] is a string
+ *   - [col_name] is a string
+ *   - [attr] is a string
+ *)
 let bucketize db_name col_name attr =
   let col = (db_name |> get_db |> get_col col_name) in
   let buckets = Hashtbl.create 20 in
   List.iter (fun doc ->
-    let value = Util.member attr doc in
-    if Hashtbl.mem buckets value then
-      let bucket = Hashtbl.find buckets value in
-      Hashtbl.replace buckets value (doc::bucket)
-    else
-      Hashtbl.add buckets value [doc]
+    try (
+      let value = Util.member attr doc in
+      if Hashtbl.mem buckets value then
+        let bucket = Hashtbl.find buckets value in
+        Hashtbl.replace buckets value (doc::bucket)
+      else
+        Hashtbl.add buckets value [doc]
+      ) with | _ -> ()
   ) (fst col);
   buckets
 
+(**
+ * Iterates through the buckets, and based on the operation
+ * specified, aggregates the values associated with t_field.
+ * If the value associated with t_field is not an int, ignore it.
+ *   - [bucket] is a list of docs
+ *   - [op] is a string
+ *   - [t_field] is a string
+ *)
 let aggregator_attr bucket op t_field =
   match op with
   | "$sum" ->
     `Int (List.fold_left (fun acc doc ->
-      let v = Util.(member t_field doc |> to_int) in
-        acc + v) 0 bucket)
+      try (
+        let v = Util.(member t_field doc |> to_int) in acc + v
+      ) with | _ -> acc) 0 bucket)
   | "$max" ->
     `Int (List.fold_left (fun max doc ->
-      let v = Util.(member t_field doc |> to_int) in
-        if v > max then v else max) min_int bucket)
+      try (
+        let v = Util.(member t_field doc |> to_int) in
+        if v > max then v else max
+      ) with | _ -> max) min_int bucket)
   | "$min" -> `Int (List.fold_left (fun min doc ->
-      let v = Util.(member t_field doc |> to_int) in
-        if v < min then v else min) max_int bucket)
+      try (
+        let v = Util.(member t_field doc |> to_int) in
+        if v < min then v else min
+      ) with | _ -> min) max_int bucket)
   | _ -> failwith "Aggregator failed"
 
 (**
- * For summing up with constants for a count of buckets
+ * For summing up with constants for a count of buckets.
+ *   - [bucket] is a list of docs
+ *   - [op] is a string
+ *   - [t_field] is a string
  *)
 let aggregator_const bucket op t_field =
   match op with
   | "$sum" -> `Int (List.fold_left (fun acc doc -> acc + t_field) 0 bucket)
   | _ -> failwith "Aggregator failed"
 
+(**
+ * Handles the aggregation logic for all buckets.
+ * Iterates through all buckets, and in each iteration,
+ * iterates through each field we have to create, specified in agg_lst.
+ *   - [acc] is a list of docs
+ *   - [agg_lst] is a list of pairs
+ *   - [t_field] is a string
+ *)
 let aggregation_helper acc agg_lst buckets =
   Hashtbl.iter (fun key bucket ->
     let result_doc = `Assoc (
@@ -546,7 +591,14 @@ let aggregation_helper acc agg_lst buckets =
     acc := result_doc::(!acc)
   ) buckets
 
-(*db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})*)
+(**
+ * Handles the aggregation logic on a collection.
+ * Example:
+ * db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})
+ *   - [db_name] is a string
+ *   - [col_name] is a string
+ *   - [agg_doc] is a doc, conforming to structure specified in help.ml
+ *)
 let aggregate db_name col_name agg_doc =
   try (
     let bucket_attr = Util.(member "_id" agg_doc |> to_string) in
@@ -569,8 +621,9 @@ let aggregate db_name col_name agg_doc =
 (* -------------------------------REMOVING--------------------------------- *)
 
 (**
- * Given a string representing name of db, drops a db in the environment.
- * On failure, return false. On success, return true.
+ * Given a string representing name of db, drops the db in the environment,
+ * and should drop the db in disk if the database is saved.
+ *   - [db_name] is a string
  *)
 let drop_db db_name =
   try (
@@ -588,9 +641,12 @@ let drop_db db_name =
   | _ -> Failure unexpected_error
 
 (**
- * Given a string representing name of col, drops a col in the environment.
- * On failure, return false. On success, return true.
+ * Given a string representing name of db and col, drops the col
+ * in the environment, and should drop the col in disk if the database is saved.
+ *   - [db_name] is a string
+ *   - [col_name] is a string
  *)
+
 let drop_col db_name col_name =
   try (
     let (db_hashtbl, _) = get_db db_name in
@@ -605,13 +661,17 @@ let drop_col db_name col_name =
   | _ -> Failure unexpected_error
 
 let batch_replace doc_list tree index_val =
-  let zerothdoc = List.nth doc_list 0 in
-  let nonzerodocs = List.filter (fun f-> f <> zerothdoc) doc_list in
-  tree := Tree.insert index_val zerothdoc !tree true;
-  List.iter (fun ele -> tree := Tree.insert index_val ele !tree false) nonzerodocs
+  let zeroth_doc = List.nth doc_list 0 in
+  let non_zero_docs = List.filter (fun f -> f <> zeroth_doc) doc_list in
+  tree := Tree.insert index_val zeroth_doc !tree true;
+  List.iter (fun ele ->
+    tree := Tree.insert index_val ele !tree false) non_zero_docs
 
 (**
  * Replaces the value list associated with the key of this doc.
+ * requires:
+ *     - [index_list] is a list of type index_file
+ *     - [doc] is a doc conforming to structure specified in help.ml
  *)
 let rec replace_tree index_list doc =
   match index_list with
@@ -633,9 +693,11 @@ let rec replace_tree index_list doc =
       else replace_tree tl doc
 
 (**
- * Given a doc representing criteria to query on, removes all
- * appropriate docs in the environment. On failure, return false.
- * On success, return true.
+ * Drops anything in the specified collection that satisfies the query_doc.
+ * Changes should persist if the database is saved.
+ *   - [db_name] is a string
+ *   - [col_name] is a string
+ *   - [query_doc] is a doc conforming to structure specified in help.ml
  *)
 let remove_doc db_name col_name query_doc =
   try (
@@ -658,9 +720,11 @@ let remove_doc db_name col_name query_doc =
 (* ----------------------------UPDATING/REPLACING---------------------------- *)
 
 (**
- * Given a doc representing criteria to query on,
- * removes all appropriate docs in the environment.
- * On failure, return false. On success, return true.
+ * Drops anything in the specified collection that satisfies the query_doc.
+ * Changes should persist if the database is saved. Then returns all removed docs in list.
+ *   - [db_name] is a string
+ *   - [col_name] is a string
+ *   - [query_doc] is a doc conforming to structure specified in help.ml
  *)
 let remove_and_get_doc db_name col_name query_doc =
   try (
@@ -676,7 +740,9 @@ let remove_and_get_doc db_name col_name query_doc =
   ) with | _ -> []
 
 (**
- * Responsible for updating a document, given an update document
+ * Responsible for updating a single document, given an update document
+ *   - [doc] is a general doc, the document to be modified
+ *   - [update_doc] is a doc conforming to structure specified in help.ml
  *)
 let rec modify_doc doc update_doc =
   let helper doc (u_key, u_value) =
@@ -701,8 +767,11 @@ let rec modify_doc doc update_doc =
 
 (**
  * Given a doc representing criteria to query on, removes all appropriate docs,
- * and then inserts the given doc. On failure, return false.
- * On success, return true.
+ * and then inserts the given doc.
+ *   - [db_name] is a string
+ *   - [col_name] is a string
+ *   - [query_doc] is a doc conforming to structure specified in help.ml
+ *   - [update_doc] is a doc conforming to structure specified in help.ml
  *)
 let replace_col db_name col_name query_doc update_doc =
   try (
@@ -721,11 +790,6 @@ let replace_col db_name col_name query_doc update_doc =
   | _ -> Failure "Error with replacing doc. Ensure that the query document
     is in the correct format. Refer to -query_doc for more information."
 
-(**
- * Given a doc representing criteria to query on,
- * updates all appropriate docs in the environment.
- * On failure, return false. On success, return true.
- *)
 let update_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in
@@ -746,4 +810,24 @@ let update_col db_name col_name query_doc update_doc =
     Refer to -query_doc and -update_doc for more information."
 
 let clear_env () = Hashtbl.reset environment
+
+let benchmarker () =
+  let _ = create_db "benchmark_db" in
+  let _ = create_col "benchmark_db" "col1" in
+  let _ = create_col "benchmark_db" "col2" in
+  let json_list_1 = benchmark_json_gen 20000 [] in
+  let json_list_2 = benchmark_json_gen 20000 [] in
+  let index_doc = `Assoc[ ("a", `Assoc[("$exists", `Bool true)])] in
+  let query_doc = `Assoc[ ("a", `Int 5); ("b", `Int 10)] in
+  List.map (fun f -> create_doc "benchmark_db" "col1" f) json_list_1;
+  List.map (fun f -> create_doc "benchmark_db" "col2" f) json_list_2;
+  let _ = create_index "benchmark_db" "col2" "a" index_doc in
+  let t = Sys.time () in
+  let _ = query_col "benchmark_db" "col1" query_doc in
+  let time_query_1  = Sys.time () -. t in
+  let t_query_2 = Sys.time () in
+  let _ = query_col "benchmark_db" "col2" query_doc in
+  let time_query_2 = Sys.time () -. t_query_2 in
+  Success ("The time to run query 1 was: " ^ (string_of_float time_query_1) ^
+           " the time to run query 2 was: " ^ (string_of_float time_query_2))
 
