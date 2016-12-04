@@ -77,11 +77,23 @@ let set_dirty db_name =
 let stringify_list lst =
   List.fold_left (fun acc ele -> acc ^ " [" ^ ele ^ "]") "" lst
 
+(**
+ * Given two docs, a and b will print 0, 1, or -1 depending on whether A
+ * is = > or < to B
+ * requires:
+ *   - [a] is of type doc with the structure specified in help.ml
+ *   - [b]] is of type doc with the structure specified in help.ml
+ *)
 let compare_docs a b =
   if a > b then 1
   else if a < b then -1
   else 0
 
+(**
+ * Given an array of docs, sorts in ascending order
+ * requires:
+ *   - [arr] is an array of docs
+ *)
 let key_sort arr = Array.sort compare_docs arr
 
 let persist_query response = match response with
@@ -116,6 +128,10 @@ let create_db db_name =
 
 (**
  * Adds og_doc to a index if one is found. Otherwise return nothing
+ * requires:
+ *    - [og_doc] is a doc
+ *    - [doc] is a list of `Assoc
+ *    - [col] is of type collection
  *)
 let rec index_modifier og_doc doc col = match doc with
   | [] -> ()
@@ -137,6 +153,10 @@ let rec index_modifier og_doc doc col = match doc with
 (**
  * Given the doc, update the index
  * if that doc's attribute matches a declared index field.
+ * requires:
+ *      - [ogDoc] is of type doc
+ *      - [doc] is a list of `Assoc
+ *      - [col] is of type collection
  *)
 let rec index_updater ogDoc doc col = match doc with
   |`Assoc a -> (
@@ -147,11 +167,14 @@ let rec index_updater ogDoc doc col = match doc with
   |_ -> ()
 
 (**
- * Generate json with ascending values based on input len
+ * Generate json with ascending values based on input len.
+ * requires:
+ *     - [len] is a int of value >=0
+ *     - [lst] is a list of docs
  *)
 let benchmark_json_gen len lst =
   let rec helper lent lst_p ctr =
-  if ((List.length lst_p) > lent) then lst_p
+  if ((List.length lst_p) >= lent) then lst_p
   else
     let new_doc = `Assoc[("a", `Int ctr); ("b", `Int (ctr * 2))] in
     helper lent (new_doc::lst_p) (ctr + 1)
@@ -161,6 +184,9 @@ let benchmark_json_gen len lst =
 (**
  * Returns the tree associated with the specified index in the index desired.
  * Returns empty if no index can be found.
+ * requires:
+ *      - [index_name] is of type string and is a valid index
+ *      - [index] is of type index_file list
  *)
 let rec get_index index_name index =
   match index with
@@ -171,6 +197,10 @@ let rec get_index index_name index =
 (**
  * Run through the tree you were provided and return
  * value list for the key that matches value.
+ * requires:
+ *       - [tree_list] is a list of keys and values associated in
+ *          the index tree.
+ *       - [value] is of the same value and type as a key in the tree list.
  *)
 let rec tree_helper tree_list value =
   match tree_list with
@@ -182,12 +212,18 @@ let rec tree_helper tree_list value =
 (**
  * Returns the values associated with the specified key in the desired index
  * Returns empty list if nothing can be found.
+ * requires:
+ *       - [index_name] is a valid index in our collection
+ *       - [value] is of type doc
+ *       - [col_name] is the name of a valid collection in our database
+ *       - [db_name] is the name of a database in our catalog
  *)
 let get_values value index_name col_name db_name =
   let index_list = snd ((get_db db_name) |> get_col col_name) in
   let index_tree  = get_index index_name index_list in
   let tree_as_list = Tree.to_list index_tree in
   tree_helper tree_as_list value
+
 
 let create_doc db_name col_name doc =
   try (
@@ -302,7 +338,11 @@ let parse_op str = match str with
  * collectionTree is the index for the attribute specified.
  * This needs to parse the query and figure out what type of query it is.
  * Depending on what type of query it is,
- * it will then call traverse with certain bounds on the tree *)
+ * it will then call traverse with certain bounds on the tree.
+ * requires:
+ *      - [col_tree] is a index tree
+ *      - [query_doc] is a list of `Assoc
+ *)
 let index_query_builder col_tree query_doc =
   let rec helper col_tree query_doc = match query_doc with
     | h::t -> (
@@ -387,7 +427,10 @@ let check_doc doc query_doc =
 * IF there are, we want to get teh docs associated with this query from the index
 * And return those after converting to a normal doc list.
 * Otherwise, continue and ultimately just
-* return whatever the collection's list of docs are if no index can be matched
+* return whatever the collection's list of docs are if no index can be matched.
+* requires:
+*     - [col] is of type collection
+*     - [query_list] is a list of type doc
 *)
 let index_checker col query_list =
   let docs = ref [] in
@@ -420,6 +463,9 @@ let query_col db_name col_name query_doc =
 
 (**
  * Extract all the keys associated with this List, removing duplicates as we go.
+ * requires:
+ *     - [list_tbl] is a list representation of a hashtable
+ *     - [key_list] is a list of type doc
  *)
 let rec extract_keys list_tbl key_list =
   match list_tbl with
@@ -430,6 +476,8 @@ let rec extract_keys list_tbl key_list =
 
 (**
  * Return the keySet for my hashtable, tbl. That is, a set with only unique keys.
+ * requires:
+ *     - tbl is a hashtable.
  *)
 let key_set tbl =
   let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
@@ -437,7 +485,12 @@ let key_set tbl =
   Array.of_list final_list
 
 (**
- * Given the database, collection, desired index_name and querydoc, creates a index
+ * Given the database, collection, desired index_name and querydoc, creates a index.
+ * requires:
+ *      - [db_name] is the string
+ *      - [col_name] is the string
+ *      - index_name is the string representation of a index in our collection
+ *      - query_doc is of type `Assoc
  *)
 let create_index db_name col_name index_name query_doc =
   let db = db_name |> get_db in
@@ -462,6 +515,11 @@ let create_index db_name col_name index_name query_doc =
 
 (**
  * Given a remove operation, updates the index tree to reflect new state.
+ * requires:
+ *      - [db_name] is the string
+ *      - [col_name] is the string
+ *      - [index_list] is a list of index_file
+ *      - [new_list] is a list of index_file
  *)
 let rec recreate_index db_name col_name index_list new_list=
   match index_list with
@@ -670,6 +728,9 @@ let batch_replace doc_list tree index_val =
 
 (**
  * Replaces the value list associated with the key of this doc.
+ * requires:
+ *     - [index_list] is a list of type index_file
+ *     - [doc] is a doc conforming to structure specified in help.ml
  *)
 let rec replace_tree index_list doc =
   match index_list with
