@@ -443,7 +443,6 @@ let create_index db_name col_name index_name query_doc =
       key_set table in
     let tree = ref Tree.empty in
     let update = {id_name = index_name; id_table = table; keys = tree} in
-    key_sort keys_array;
     keys_array |> Array.to_list |> List.iter (fun key ->
       let table_list = Hashtbl.find_all table key in
       List.iter (fun ele -> tree := Tree.insert key ele !tree false) table_list
@@ -491,10 +490,10 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let memory_dbs = key_set environment |> Array.to_list in 
-    let persisted_dbs = show_persisted () in 
-    let combined_dbs = 
-      (memory_dbs@persisted_dbs) |> List.sort_uniq (String.compare) in 
+    let memory_dbs = key_set environment |> Array.to_list in
+    let persisted_dbs = show_persisted () in
+    let combined_dbs =
+      (memory_dbs@persisted_dbs) |> List.sort_uniq (String.compare) in
     let contents = combined_dbs |> stringify_list in
     Success contents
   ) with
@@ -815,13 +814,14 @@ let benchmarker () =
   let _ = create_db "benchmark_db" in
   let _ = create_col "benchmark_db" "col1" in
   let _ = create_col "benchmark_db" "col2" in
-  let json_list_1 = benchmark_json_gen 20000 [] in
+  let json_list_1 = benchmark_json_gen 20000[] in
   let json_list_2 = benchmark_json_gen 20000 [] in
   let index_doc = `Assoc[ ("a", `Assoc[("$exists", `Bool true)])] in
-  let query_doc = `Assoc[ ("a", `Int 5); ("b", `Int 10)] in
+  let query_doc = `Assoc[ ("a", `Int 15000); ("b", `Int 30000)] in
   List.map (fun f -> create_doc "benchmark_db" "col1" f) json_list_1;
   List.map (fun f -> create_doc "benchmark_db" "col2" f) json_list_2;
   let _ = create_index "benchmark_db" "col2" "a" index_doc in
+  print_endline "index has been made";
   let t = Sys.time () in
   let _ = query_col "benchmark_db" "col1" query_doc in
   let time_query_1  = Sys.time () -. t in
