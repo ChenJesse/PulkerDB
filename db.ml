@@ -131,15 +131,15 @@ let create_db db_name =
  *)
 let rec index_modifier og_doc doc col = match doc with
   | [] -> ()
-  | (k,v)::tl ->
+  | (k, v)::tl ->
     let rec helper indices = match indices with
     | [] -> index_modifier og_doc tl col
     | index::t ->
       if index.id_name = k then
         let tree = index.keys in
         if Tree.member v !tree then
-          if ((Tree.find v !tree) = [`Null] && v <> `Null ||
-             ((Tree.find v !tree) = [`Int 0] && v <> `Int 0))
+          if (Tree.find v !tree) = [`Null] && v <> `Null ||
+             ((Tree.find v !tree) = [`Int 0] && v <> `Int 0)
           then tree := Tree.insert v og_doc (!tree) true
           else tree := Tree.insert v og_doc (!tree) false
         else tree := Tree.insert v og_doc (!tree) false
@@ -158,7 +158,7 @@ let rec index_modifier og_doc doc col = match doc with
 let rec index_updater ogDoc doc col = match doc with
   |`Assoc a -> (
     match a with
-    | ((b : string),(c : Tree.key))::tl -> index_modifier ogDoc a col
+    | ((b : string), (c : Tree.key))::tl -> index_modifier ogDoc a col
     | _ -> ()
   )
   |_ -> ()
@@ -171,7 +171,7 @@ let rec index_updater ogDoc doc col = match doc with
  *)
 let benchmark_json_gen len lst =
   let rec helper lent lst_p ctr =
-  if ((List.length lst_p) >= lent) then lst_p
+  if (List.length lst_p) >= lent then lst_p
   else
     let new_doc = `Assoc[("a", `Int ctr); ("b", `Int (ctr * 2))] in
     helper lent (new_doc::lst_p) (ctr + 1)
@@ -188,7 +188,7 @@ let benchmark_json_gen len lst =
 let rec get_index index_name index =
   match index with
   | [] -> Tree.empty
-  | { id_name = a; id_table =_; keys= c }::tl ->
+  | { id_name = a; id_table = _; keys = c }::tl ->
     if a = index_name then !c else get_index index_name tl
 
 (**
@@ -202,7 +202,7 @@ let rec get_index index_name index =
 let rec tree_helper tree_list value =
   match tree_list with
   | [] -> Failure (pretty_to_string (`List []))
-  | (k,v)::tl ->
+  | (k, v)::tl ->
     if value = k then Success (pretty_to_string (`List v))
     else tree_helper tl value
 
@@ -220,7 +220,7 @@ let create_doc db_name col_name doc =
     let col_list = fst col in
     let new_col = doc::col_list in
     index_updater doc doc col;
-    let new_col_index = (new_col, (snd) col) in
+    let new_col_index = (new_col, snd col) in
     Hashtbl.replace (fst db) col_name new_col_index;
     set_dirty db_name;
     Success "Document created successfully!"
@@ -250,10 +250,10 @@ let nested_json doc =
   | `Assoc _ -> true
   | _ -> false
 
-(* Returns true if the doc is a comparator json ex. "{key: {'$lte', 5}}" *)
+(* Returns true if the doc is a comparator json ex. "{key: {'_lte', 5}}" *)
 let comparator_json doc =
   match doc with
-  | `Assoc lst -> let k = List.hd lst |> fst in (String.get k 0) = '$'
+  | `Assoc lst -> let k = List.hd lst |> fst in (String.get k 0) = '_'
   | _ -> false
 
 (**
@@ -273,36 +273,37 @@ let compare op doc1 doc2 =
   | Exists -> failwith "Shouldn't be here"
 
 let parse_op str = match str with
-  | "$lt" -> Some Less
-  | "$lte" -> Some LessEq
-  | "$gt" -> Some Greater
-  | "$gte" -> Some GreaterEq
-  | "$ne" -> Some NotEq
-  | "$exists" -> Some Exists
+  | "_lt" -> Some Less
+  | "_lte" -> Some LessEq
+  | "_gt" -> Some Greater
+  | "_gte" -> Some GreaterEq
+  | "_ne" -> Some NotEq
+  | "_exists" -> Some Exists
   | _ -> None
 
+let handle_index_none h col_tree helper = 
+  match nested_json (snd h) with
+  | true -> (
+    let nested = match (snd h) with
+      | `Assoc lst -> lst
+      | _ -> failwith unexpected_error in
+    if comparator_json (snd h) then helper col_tree nested else []
+  )
+  | false -> find (snd h) col_tree
+
 (**
- * query_doc is guaranteed to have the field this index tree is built on.
  * collectionTree is the index for the attribute specified.
- * This needs to parse the query and figure out what type of query it is.
- * Depending on what type of query it is,
+ * Depending on what type of query it is.
  * it will then call traverse with certain bounds on the tree.
  * requires:
  *   - [col_tree] is a index tree
- *   - [query_doc] is a list of `Assoc
+ *   - [query_doc] is a list of `Assoc, must have 
+ *                    the field this index tree is built on.
  *)
 let index_query_builder col_tree query_doc =
   let rec helper col_tree query_doc = match query_doc with
     | h::t -> (
-      let comparator = match (fst h) with
-      | "$lt" -> Some Less
-      | "$lte" -> Some LessEq
-      | "$gt" -> Some Greater
-      | "$gte" -> Some GreaterEq
-      | "$ne" -> Some NotEq
-      | "$exists" -> Some Exists
-      | _ -> None
-      in
+      let comparator = parse_op (fst h) in 
       let max_temp = `List[`Int max_int] in
       match comparator with
       | Some Less -> get_range col_tree (snd h) `Null
@@ -315,14 +316,7 @@ let index_query_builder col_tree query_doc =
         (get_range col_tree (snd h) `Null) @ (get_range col_tree max_temp (snd h))
       | Some Exists -> get_range col_tree max_temp `Null
       | Some Eq -> failwith unexpected_error
-      | None -> match (nested_json (snd h)) with
-        | true -> (
-          let nested = match (snd h) with
-            | `Assoc lst -> lst
-            | _ -> failwith unexpected_error in
-          if h |> snd |> comparator_json then helper col_tree nested else []
-        )
-        | false -> find (snd h) col_tree
+      | None -> handle_index_none h col_tree helper
       )
     | _ -> failwith unexpected_error
   in
@@ -330,38 +324,48 @@ let index_query_builder col_tree query_doc =
   | `Assoc lst -> helper col_tree lst
   | _ -> failwith "Invalid query JSON"
 
+let handle_exists doc h p_key = 
+  let doc1 = Util.member p_key doc in
+  let doc2 = snd h in
+  (doc1 <> `Null && doc2 = `Bool true) || (doc1 = `Null && doc2 = `Bool false)
+
+let handle_some_op doc h p_key op = 
+  let item1 = Util.member p_key doc in
+  let item2 = snd h in
+  try (compare op item1 item2)
+  with | _ -> false
+
+let handle_check_none doc h t p_key helper = 
+  (match (nested_json (snd h)) with
+  | true ->
+    let nested = match (snd h) with
+      | `Assoc lst -> lst
+      | _ -> failwith "Can't be here" in
+    if (comparator_json (snd h)) then 
+      helper doc nested (fst h) true |> helper doc t p_key
+    else (
+      try (
+        let inner = Util.member (fst h) doc in 
+        helper inner nested (fst h) true |> helper doc t p_key
+      ) with 
+      | _ -> false)
+  | false ->
+    let item1 = Util.member (fst h) doc in
+    let item2 = snd h in
+    (try (compare Eq item1 item2 |> helper doc t p_key)
+    with | _ -> false)
+  )
+
 let check_doc doc query_doc =
   let rec helper doc query_doc p_key acc = match acc, query_doc with
   | (false, _) -> false
   | (_, []) -> acc
   | (_, h::t) ->
-    let comparator = parse_op (fst h)
-    in
+    let comparator = parse_op (fst h) in
     match comparator with
-    | Some Exists ->
-      let doc1 = Util.member p_key doc in
-      let doc2 = snd h in
-      (doc1 <> `Null && doc2 = `Bool true) || (doc1 = `Null && doc2 = `Bool false)
-    | Some op ->
-      let item1 = Util.member p_key doc in
-      let item2 = snd h in
-      (try (compare op item1 item2)
-      with | _ -> false)
-    | None -> (match (nested_json (snd h)) with
-      | true ->
-        let nested = match (snd h) with
-          | `Assoc lst -> lst
-          | _ -> failwith "Can't be here" in
-        if (comparator_json (snd h)) then helper doc nested (fst h) true
-          |> helper doc t p_key
-        else (try (helper (Util.member (fst h) doc) nested (fst h) true
-              |> helper doc t p_key) with | _ -> false)
-      | false ->
-        let item1 = Util.member (fst h) doc in
-        let item2 = snd h in
-        (try (compare Eq item1 item2 |> helper doc t p_key)
-        with | _ -> false)
-      )
+    | Some Exists -> handle_exists doc h p_key
+    | Some op -> handle_some_op doc h p_key op
+    | None -> handle_check_none doc h t p_key helper
   in
   match query_doc with
   | `Assoc lst -> helper doc lst "" true
@@ -369,7 +373,7 @@ let check_doc doc query_doc =
 
 (**
 * Checks if there are any indices that match the current queries field.
-* IF there are, we want to get teh docs associated with this query from the index
+* If there are, we want to get teh docs associated with this query from the index
 * And return those after converting to a normal doc list.
 * Otherwise, continue and ultimately just
 * return whatever the collection's list of docs are if no index can be matched.
@@ -394,7 +398,7 @@ let index_checker col query_list =
 let query_col db_name col_name query_doc =
   try (
     let col = (db_name |> get_db |> get_col col_name) in
-    let lst_queries = (match query_doc with |`Assoc lst -> lst |_ -> [] ) in
+    let lst_queries = match query_doc with | `Assoc lst -> lst | _ -> [] in
     let documents = index_checker col lst_queries in
     let query_result = List.filter (fun d -> check_doc d query_doc) documents in
     let query_string = `List(query_result) |> pretty_to_string in
@@ -415,7 +419,7 @@ let query_col db_name col_name query_doc =
 let rec extract_keys list_tbl key_list =
   match list_tbl with
   | [] -> key_list
-  | (k,v)::t ->
+  | (k, v)::t ->
     if List.mem k key_list then extract_keys t key_list
     else extract_keys t (k::key_list)
 
@@ -425,17 +429,16 @@ let rec extract_keys list_tbl key_list =
  *   - tbl is a hashtable.
  *)
 let key_set tbl =
-  let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
+  let list_tbl = Hashtbl.fold (fun k v acc -> (k, v)::acc) tbl [] in
   let final_list = extract_keys list_tbl [] in
   Array.of_list final_list
-
 
 let create_index db_name col_name index_name query_doc =
   let db = db_name |> get_db in
   let col = db |> get_col col_name in
   let query_result = List.filter (fun d -> check_doc d query_doc) (fst col) in
   match List.length query_result with
-  | 0 -> Failure "no docs matched the desired field"
+  | 0 -> Failure "No documents matched the desired field."
   | _ ->
     let table = Hashtbl.create 5 in
     let keys_array =
@@ -462,7 +465,7 @@ let rec recreate_index db_name col_name index_list new_list =
   match index_list with
   | []-> new_list
   | {id_name= name; id_table= idtable; keys= tree}::tl->
-      let query_doc = `Assoc [(name, `Assoc[("$exists", `Bool true)])] in
+      let query_doc = `Assoc [(name, `Assoc[("_exists", `Bool true)])] in
       let _ = create_index db_name col_name name query_doc in
       let new_index_list = snd (db_name |> get_db |> get_col col_name) in
       let newTree = get_index name new_index_list in
@@ -534,18 +537,18 @@ let bucketize db_name col_name attr =
  *)
 let aggregator_attr bucket op t_field =
   match op with
-  | "$sum" ->
+  | "_sum" ->
     `Int (List.fold_left (fun acc doc ->
       try (
         let v = Util.(member t_field doc |> to_int) in acc + v
       ) with | _ -> acc) 0 bucket)
-  | "$max" ->
+  | "_max" ->
     `Int (List.fold_left (fun max doc ->
       try (
         let v = Util.(member t_field doc |> to_int) in
         if v > max then v else max
       ) with | _ -> max) min_int bucket)
-  | "$min" -> `Int (List.fold_left (fun min doc ->
+  | "_min" -> `Int (List.fold_left (fun min doc ->
       try (
         let v = Util.(member t_field doc |> to_int) in
         if v < min then v else min
@@ -560,7 +563,7 @@ let aggregator_attr bucket op t_field =
  *)
 let aggregator_const bucket op t_field =
   match op with
-  | "$sum" -> `Int (List.fold_left (fun acc doc -> acc + t_field) 0 bucket)
+  | "_sum" -> `Int (List.fold_left (fun acc doc -> acc + t_field) 0 bucket)
   | _ -> failwith "Aggregator failed"
 
 (**
@@ -593,7 +596,7 @@ let aggregation_helper acc agg_lst buckets =
 (**
  * Handles the aggregation logic on a collection.
  * Example:
- * db.mycol.aggregate({_id : "$by_user", num_tutorial : {$sum : "$likes"}})
+ * db.mycol.aggregate({_id : "by_user", num_tutorial : {_sum : "likes"}})
  *   - [db_name] is a string
  *   - [col_name] is a string
  *   - [agg_doc] is a doc, conforming to structure specified in help.ml
@@ -607,7 +610,7 @@ let aggregate db_name col_name agg_doc =
       let acc = ref [] in
       let filtered = List.filter (fun pair -> (fst pair) <> "_id") lst in
       aggregation_helper acc filtered buckets;
-      let agg_string = `List(!acc) |> pretty_to_string in
+      let agg_string = `List (!acc) |> pretty_to_string in
       Success agg_string
     | _ -> Failure "Error with aggregating response.
                     Refer to -agg_doc for more information."
@@ -702,9 +705,9 @@ let remove_doc db_name col_name query_doc =
   try (
     let db = db_name |> get_db in
     let col = get_col col_name db in
-    let index_list = (snd) col in
+    let index_list = snd col in
     let new_col = List.filter (fun d -> not (check_doc d query_doc)) (fst col) in
-    let lost_docs = List.filter (fun d ->  (check_doc d query_doc)) (fst col) in
+    let lost_docs = List.filter (fun d -> check_doc d query_doc) (fst col) in
     Hashtbl.replace (fst db) col_name (new_col, []);
     List.iter (replace_tree index_list) lost_docs;
     Hashtbl.replace (fst db) col_name (new_col, snd col);
@@ -777,9 +780,9 @@ let replace_col db_name col_name query_doc update_doc =
     let db = get_db db_name in
     let _ = remove_doc db_name col_name query_doc in
     let col = get_col col_name db in
-    let new_col = update_doc::((fst)col) in
-    Hashtbl.replace (fst db) col_name (new_col,[]);
-    let new_index_list = recreate_index db_name col_name ((snd) col) [] in
+    let new_col = update_doc::(fst col) in
+    Hashtbl.replace (fst db) col_name (new_col, []);
+    let new_index_list = recreate_index db_name col_name (snd col) [] in
     Hashtbl.replace (fst db) col_name (new_col, new_index_list);
     set_dirty db_name;
     Success "Collection replaced successfully!"
@@ -792,13 +795,13 @@ let replace_col db_name col_name query_doc update_doc =
 let update_col db_name col_name query_doc update_doc =
   try (
     let db = get_db db_name in
-    let u_doc = match Util.member "$set" update_doc with
+    let u_doc = match Util.member "_set" update_doc with
       | `Assoc json -> `Assoc json
       | _ -> raise InvalidUpdateDocException in
     let query = remove_and_get_doc db_name col_name query_doc in
     let col = get_col col_name db in
     let new_col = (fst col)@(List.map (fun json -> (modify_doc json u_doc)) query) in
-    Hashtbl.replace (fst db) col_name (new_col,(snd) col);
+    Hashtbl.replace (fst db) col_name (new_col, snd col);
     let new_index_list = recreate_index db_name col_name (snd col) [] in
     Hashtbl.replace (fst db) col_name (new_col, new_index_list);
     Success "Collection updated successfully!"
@@ -814,14 +817,14 @@ let benchmarker () =
   let _ = create_db "benchmark_db" in
   let _ = create_col "benchmark_db" "col1" in
   let _ = create_col "benchmark_db" "col2" in
-  let json_list_1 = benchmark_json_gen 20000[] in
+  let json_list_1 = benchmark_json_gen 20000 [] in
   let json_list_2 = benchmark_json_gen 20000 [] in
-  let index_doc = `Assoc[ ("a", `Assoc[("$exists", `Bool true)])] in
+  let index_doc = `Assoc[ ("a", `Assoc[("_exists", `Bool true)])] in
   let query_doc = `Assoc[ ("a", `Int 15000); ("b", `Int 30000)] in
   List.map (fun f -> create_doc "benchmark_db" "col1" f) json_list_1;
   List.map (fun f -> create_doc "benchmark_db" "col2" f) json_list_2;
   let _ = create_index "benchmark_db" "col2" "a" index_doc in
-  print_endline "index has been made";
+  print_endline "Index has been made!";
   let t = Sys.time () in
   let _ = query_col "benchmark_db" "col1" query_doc in
   let time_query_1  = Sys.time () -. t in

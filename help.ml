@@ -87,9 +87,9 @@ let aggr_msg =
   "Will aggregate the collection based on the agg_doc, and return the information in document form.
     An aggregation operation consists of a group_by phase, and then aggregation operations on one or more fields.
     IMPORTANT: Aggregations are supported only for integers.
-    Note that in the case where $sum has no luck aggregating the desired fields, it will return 0.
-    Note that in the case where $max has no luck aggregating the desired fields, it will return -4611686018427387904.
-    Note that in the case where $min has no luck aggregating the desired fields, it will return 4611686018427387904.
+    Note that in the case where _sum has no luck aggregating the desired fields, it will return 0.
+    Note that in the case where _max has no luck aggregating the desired fields, it will return -4611686018427387904.
+    Note that in the case where _min has no luck aggregating the desired fields, it will return 4611686018427387904.
     Enter -agg_doc for more information."
 
 let cidx_msg =
@@ -107,21 +107,21 @@ let gen_doc_msg =
 let query_doc_msg =
   "A query document.
     Every general document is a query document.
-    Also supports comparators, which are: $lte, $lt, $gte, $gt, $ne.
+    Also supports comparators, which are: _lte, _lt, _gte, _gt, _ne.
     Note that on entering the comparators, wrap the keys in quotes, as you would a string.
-    Example: {a: {$lt: 5}} looks for any documents with a field \"a\" less than 5.
+    Example: {a: {_lt: 5}} looks for any documents with a field \"a\" less than 5.
     Example: {a: 5} looks for any documents with a field \"a\" equal to 5."
 
 let update_doc_msg =
   "An update document.
-    A general document of the form {$set: {a}}, where \"a\" is the field(s) that you wish to update.
-    Example: {$set: {a: 100, b: 200}} will set fields \"a\" to 100 and \"b\" to 200. If either fields
+    A general document of the form {_set: {a}}, where \"a\" is the field(s) that you wish to update.
+    Example: {_set: {a: 100, b: 200}} will set fields \"a\" to 100 and \"b\" to 200. If either fields
     do not exist, the attribute will be created."
 
 let agg_doc_msg =
   "An aggregation document.
     A general document that must have an \"_id\" field with a string value designating the attribute to group by,
-    and pairs of this structure: {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method ($sum, $max, or $min),
+    and pairs of this structure: {x: {y: z}}, where x is the field name you desire to generate, where y is the aggregation method (_sum, _max, or _min),
     and z is the field name of what you want to aggregate on."
 
 let index_doc_msg =
@@ -139,7 +139,7 @@ let store_msg =
   "If you wish to pipe the results of your query to a json file, end your command with the -s flag.
     The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
     Flagging inappropriate commands will have no effect.
-    Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
+    Example: db.COLLECTION_NAME.find({a: {_lte: 5}}) -s, will store all the results of the query in a json file."
 
 let spacing = "    "
 

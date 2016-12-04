@@ -65,22 +65,22 @@ let db_tests = [
     (check_doc (parse_json "{a: 1, b: 2, c: 3}") (parse_json "{a: 1, b: 2, c: 2}")));
   "test5" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: 2, c: 3}")
-    (parse_json "{a: 1, b: 2, c: {\"$lte\": 3}}")));
+    (parse_json "{a: 1, b: 2, c: {_lte: 3}}")));
   "test6" >:: (fun _ -> assert_equal false
     (check_doc (parse_json "{a: 1, b: 2, c: 3}")
-    (parse_json "{a: 1, b: 2, c: {\"$lt\": 3}}")));
+    (parse_json "{a: 1, b: 2, c: {_lt: 3}}")));
   "test7" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: 2, c: 3}")
-    (parse_json "{a: 1, b: 2, c: {\"$gt\": 2}}")));
+    (parse_json "{a: 1, b: 2, c: {_gt: 2}}")));
   "test8" >:: (fun _ -> assert_equal false
     (check_doc (parse_json "{a: 1, b: 2, c: 3}")
-    (parse_json "{a: 1, b: 2, c: {\"$gt\": 3}}")));
+    (parse_json "{a: 1, b: 2, c: {_gt: 3}}")));
   "test9" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: 2, c: 3}")
-    (parse_json "{a: 1, b: 2, c: {\"$ne\": 2}}")));
+    (parse_json "{a: 1, b: 2, c: {_ne: 2}}")));
   "test10" >:: (fun _ -> assert_equal false
     (check_doc (parse_json "{a: 1, b: 2, c: 3}")
-    (parse_json "{a: 1, b: 2, c: {\"$ne\": 3}}")));
+    (parse_json "{a: 1, b: 2, c: {_ne: 3}}")));
   "test11" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}")
     (parse_json "{b: {c: 5}}")));
@@ -95,16 +95,16 @@ let db_tests = [
       (parse_json "{b: {c: 5, d: \"asdff\"}}")));
   "test15" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}")
-      (parse_json "{b: {c: {\"$lt\": 6}, d: \"asdf\"}}")));
+      (parse_json "{b: {c: {_lt: 6}, d: \"asdf\"}}")));
   "test16" >:: (fun _ -> assert_equal false
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}")
-      (parse_json "{b: {c: {\"$gt\": 6}, d: \"asdf\"}}")));
+      (parse_json "{b: {c: {_gt: 6}, d: \"asdf\"}}")));
   "test17" >:: (fun _ -> assert_equal true
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}")
-      (parse_json "{b: {c: {\"$lt\": 6}, d: {\"$gt\": \"a\"}}}")));
+      (parse_json "{b: {c: {_lt: 6}, d: {_gt: \"a\"}}}")));
   "test17" >:: (fun _ -> assert_equal false
     (check_doc (parse_json "{a: 1, b: {c: 5, d: \"asdf\"}}")
-      (parse_json "{b: {c: {\"$ltt\": 6}, d: {\"$gt\": \"a\"}}}")));
+      (parse_json "{b: {c: {\"_ltt\": 6}, d: {_gt: \"a\"}}}")));
 ]
 
 let empty_db : db = ((Hashtbl.create 5), true)
@@ -186,7 +186,7 @@ let end_to_end_tests = [
   "test9I" >:: (fun _ -> assert_equal (Success "Index was successfully made!")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.createIndex({a:1})"));
-  "test9IB" >:: (fun _ -> assert_equal (Failure "no docs matched the desired field")
+  "test9IB" >:: (fun _ -> assert_equal (Failure "No documents matched the desired field.")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.createIndex({c:1})"));
   "test10" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 1, b: 2}]"))
@@ -219,77 +219,77 @@ let end_to_end_tests = [
   "test14" >:: (fun _ -> assert_equal (Success "Collection updated successfully!")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {\"$set\": {b: 6}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {_set: {b: 6}})"));
   "test14I" >:: (fun _ -> assert_equal (Success "Collection updated successfully!")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.createIndex({b:1})"; parse "test.c.find({b: 2})";
-      parse "test.c.update({a: 5} | {\"$set\": {b: 6}})"));
+      parse "test.c.update({a: 5} | {_set: {b: 6}})"));
   "test15" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 1, b: 2}, {a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {\"$set\": {b: 2}})";
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5} | {_set: {b: 2}})";
       parse "test.c.show()"));
   "test16" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 1, b: 2}, {a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
       parse "test.c.find({b: 2})"));
   "test16I" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 1, b: 2}, {a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
       parse "test.c.createIndex({b:1})"; parse "test.c.find({b: 2})";
-      parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; parse "test.c.find({b: 2})"));
+      parse "test.c.update({a: 5}|{_set: {b: 2}})"; parse "test.c.find({b: 2})"));
   "test16I_2" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 1, b: 2}, {a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";   parse "test.c.createIndex({b:1})";
       parse "test.c.insert({a: 5, b: 6})"; parse "test.c.find({b: 2})";
-      parse "test.c.update({a: 5}|{\"$set\": {b: 2}})"; parse "test.c.find({b: 2})"));
+      parse "test.c.update({a: 5}|{_set: {b: 2}})"; parse "test.c.find({b: 2})"));
   "test17" >:: (fun _ -> assert_equal (Success "[]")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.find({b: {\"$gt\": 2}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.find({b: {_gt: 2}})"));
   "test17I" >:: (fun _ -> assert_equal (Success "[]")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.createIndex({b:1})"; parse "test.c.find({b: {\"$gt\": 2}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.createIndex({b:1})"; parse "test.c.find({b: {_gt: 2}})"));
   "test18" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 1, b: 2}, {a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.find({b: {\"$gte\": 2}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.find({b: {_gte: 2}})"));
   "test18I" >:: (fun _ -> assert_equal (Success "[]")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.createIndex({b:1})"; parse "test.c.find({b: {\"$gte\": 3}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.createIndex({b:1})"; parse "test.c.find({b: {_gte: 3}})"));
   "test19I" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.createIndex({a:1})"; parse "test.c.find({a: {\"$gt\": 3}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.createIndex({a:1})"; parse "test.c.find({a: {_gt: 3}})"));
   "test19" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 5, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.find({a: {\"$gt\": 3}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.find({a: {_gt: 3}})"));
   "test20" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 1, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.find({a: {\"$lt\": 3}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.find({a: {_lt: 3}})"));
   "test20I" >:: (fun _ -> assert_equal (Success (json_printer "[ {a: 1, b: 2 } ]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{\"$set\": {b: 2}})";
-      parse "test.c.find({a: {\"$lt\": 3}})"));
+      parse "test.c.find({b: 2})"; parse "test.c.update({a: 5}|{_set: {b: 2}})";
+      parse "test.c.find({a: {_lt: 3}})"));
   "test21" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: {b: {c: 2}}}, {a: 1, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
@@ -334,29 +334,29 @@ let end_to_end_tests = [
   "test25" >:: (fun _ -> assert_equal (Success (json_printer "[{a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
-      parse "test.c.find({a: {b: {c: {\"$lt\": 3}}}})"));
+      parse "test.c.find({a: {b: {c: {_lt: 3}}}})"));
   "test25I" >:: (fun _ -> assert_equal (Success (json_printer "[{a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.createIndex({a:1})";
       parse "test.c.insert({a: {b: {c: 2}}})";
-      parse "test.c.find({a: {b: {c: {\"$lt\": 3}}}})"));
+      parse "test.c.find({a: {b: {c: {_lt: 3}}}})"));
   "test26" >:: (fun _ -> assert_equal (Success "[]")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
-      parse "test.c.find({a: {b: {c: {\"$lt\": 2}}}})"));
+      parse "test.c.find({a: {b: {c: {_lt: 2}}}})"));
   "test26I" >:: (fun _ -> assert_equal (Success "[]")
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; "test.c.createIndex({a:1})";
       parse "test.c.insert({a: {b: {c: 2}}})";
-      parse "test.c.find({a: {b: {c: {\"$lt\": 2}}}})"));
+      parse "test.c.find({a: {b: {c: {_lt: 2}}}})"));
   "test27" >:: (fun _ -> assert_equal (Success (json_printer "[{a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
-      parse "test.c.find({a: {b: {c: {\"$gt\": 1}}}})"));
+      parse "test.c.find({a: {b: {c: {_gt: 1}}}})"));
   "test27I" >:: (fun _ -> assert_equal (Success (json_printer "[{a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
-      "test.c.createIndex({a:1})"; parse "test.c.find({a: {b: {c: {\"$gt\": 1}}}})"));
+      "test.c.createIndex({a:1})"; parse "test.c.find({a: {b: {c: {_gt: 1}}}})"));
   "test28" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 1, b: 2}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
@@ -370,27 +370,27 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})";
-      parse "test.c.update({a: 1}|{\"$set\": {b: 100}})"; parse "test.c.remove({a: 1})";
+      parse "test.c.update({a: 1}|{_set: {b: 100}})"; parse "test.c.remove({a: 1})";
       parse "test.c.show()"));
   "test29I" >:: (fun _ -> assert_equal (Success (json_printer "[{a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})";  parse "test.c.createIndex({a:1})";
-      parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
+      parse "test.c.update({a: 1}|{_set: {b: 100}})";
       parse "test.c.remove({a: 1})"; parse "test.c.show()"));
   "test30" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 1234}, {a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})";
-      parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
+      parse "test.c.update({a: 1}|{_set: {b: 100}})";
       parse "test.c.replace({a: 1}| {a: 1234})"; parse "test.c.show()"));
   "test30I" >:: (fun _ ->
     assert_equal  (Success (json_printer "[{a: 1234}, {a: {b: {c: 2}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})";
-      parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
+      parse "test.c.update({a: 1}|{_set: {b: 100}})";
       parse "test.c.replace({a: 1}| {a: 1234})"; parse "test.c.createIndex({b:1})";
       parse "test.c.show()"));
   "test31" >:: (fun _ ->
@@ -399,13 +399,13 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
       parse "test.c.insert({a: 1, b: 1})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": \"b\"}})"));
   "test31I" >:: (fun _ ->
     assert_equal (Success (json_printer "[{_id: 1, asdf: 101}, {_id: 2, asdf: 1000}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
       parse "test.c.insert({a: 1, b: 1})"; parse "test.c.createIndex({a:1})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": \"b\"}})"));
   "test32I" >:: (fun _ ->
     assert_equal (Success
       (json_printer "[{_id: 1, asdf: 101, fdsa: 999999}, {_id: 2, asdf: 1000, fdsa: 999}]"))
@@ -413,7 +413,7 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 100, c: 9})";
       parse "test.c.insert({a: 2, b: 1000, c: 999})";
       parse "test.c.insert({a: 1, b: 1, c: 999999})"; parse "test.c.createIndex({a:1})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, fdsa: {\"$max\": \"c\"}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": \"b\"}, fdsa: {\"_max\": \"c\"}})"));
   "test32" >:: (fun _ ->
     assert_equal (Success
       (json_printer "[{_id: 1, asdf: 101, fdsa: 999999}, {_id: 2, asdf: 1000, fdsa: 999}]"))
@@ -421,37 +421,37 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 100, c: 9})";
       parse "test.c.insert({a: 2, b: 1000, c: 999})";
       parse "test.c.insert({a: 1, b: 1, c: 999999})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, fdsa: {\"$max\": \"c\"}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": \"b\"}, fdsa: {\"_max\": \"c\"}})"));
   "test33I" >:: (fun _ ->
     assert_equal (Success (json_printer "[{_id: 1, asdf: 2}, {_id: 2, asdf: 1}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 100})"; parse "test.c.insert({a: 2, b: 1000})";
       parse "test.c.insert({a: 1, b: 1})"; parse "test.c.createIndex({a:1})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": 1}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": 1}})"));
   "test33" >:: (fun _ ->
     assert_equal (Success (json_printer "[{_id: 1, asdf: 2}, {_id: 2, asdf: 1}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 100})";
       parse "test.c.insert({a: 2, b: 1000})"; parse "test.c.insert({a: 1, b: 1})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": 1}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": 1}})"));
   "test34" >:: (fun _ ->
     assert_equal (Success (json_printer "[{c: 100, a: 5, b: 6}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.update({a: 5}|{\"$set\": {c: 100}})";
+      parse "test.c.update({a: 5}|{_set: {c: 100}})";
       parse "test.c.find({b: 6})"));
   "test35" >:: (fun _ ->
     assert_equal (Success (json_printer "[{c: {d: 100}, a: 5, b: 6}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: 5, b: 6})";
-      parse "test.c.update({a: 5}|{\"$set\": {c: {d: 100}}})";
+      parse "test.c.update({a: 5}|{_set: {c: {d: 100}}})";
       parse "test.c.find({b: 6})"));
   "test36" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 5, b: {c: {d: 100}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5}}})";
-      parse "test.c.update({a: 5}|{\"$set\": {b: {c: {d: 100}}}})";
+      parse "test.c.update({a: 5}|{_set: {b: {c: {d: 100}}}})";
       parse "test.c.find({a: 5})"));
   "test37" >:: (fun _ ->
     assert_equal (Success
@@ -459,21 +459,21 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5}}})";
-      parse "test.c.update({a: 5}|{\"$set\": {e: {f: {g: 100}}}})";
+      parse "test.c.update({a: 5}|{_set: {e: {f: {g: 100}}}})";
       parse "test.c.find({a: 5})"));
   "test38" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 5, b: {c: {d: 5, e: 120}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
-      parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: 120}}}})";
+      parse "test.c.update({a: 5}|{_set:{b: {c: {e: 120}}}})";
       parse "test.c.find({a: 5})"));
   "test39" >:: (fun _ ->
     assert_equal (Success (json_printer "[{a: 5, b: {c: {d: 5, e: {z: \"asdf\"}}}}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
-      parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: {z: \"asdf\"}}}}})";
+      parse "test.c.update({a: 5}|{_set:{b: {c: {e: {z: \"asdf\"}}}}})";
       parse "test.c.find({a: 5})"));
   "test40" >:: (fun _ ->
     assert_equal (Success
@@ -481,7 +481,7 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
-      parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: {z: \"asdf\"}}}, h: 1234}})";
+      parse "test.c.update({a: 5}|{_set:{b: {c: {e: {z: \"asdf\"}}}, h: 1234}})";
       parse "test.c.find({a: 5})"));
   "test40a" >:: (fun _ ->
     assert_equal (Success
@@ -489,7 +489,7 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
-      parse "test.c.update({a: 5}|{\"$set\":{b: \"asdf\"}})";
+      parse "test.c.update({a: 5}|{_set:{b: \"asdf\"}})";
       parse "test.c.find({a: 5})"));
   "test41" >:: (fun _ ->
     assert_equal (Success
@@ -497,7 +497,7 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})";
       parse "test.c.insert({a: 5, b: {c: {d: 5, e: 12}}})";
-      parse "test.c.update({a: 5}|{\"$set\":{b: {c: {e: {z: \"asdf\"}}}, h: 1234, a: 6}})";
+      parse "test.c.update({a: 5}|{_set:{b: {c: {e: {z: \"asdf\"}}}, h: 1234, a: 6}})";
       parse "test.c.find({a: 6})"));
   "test34Remove1" >:: (fun _-> assert_equal
     (Success (json_printer "[{a: 2, b: 1000}]"))
@@ -541,13 +541,13 @@ let end_to_end_tests = [
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})"; parse "test.c.createIndex({a:1})";
-      parse "test.c.update({a: 1}|{\"$set\": {a: 2}})";
+      parse "test.c.update({a: 1}|{_set: {a: 2}})";
       parse "test.c.remove({a: 1})"; parse "test.c.getindex({a: 2})"));
  "test36Replace1" >:: (fun _ -> assert_equal (Success (json_printer "[{a: 1234}]"))
     (clear_env(); parse "use test"; parse "test.createCollection(c)";
       parse "test.c.insert({a: 1, b: 2})"; parse "test.c.insert({a: {b: {c: 2}}})";
       parse "test.c.insert({a: 1, b: 3})"; parse "test.c.createIndex({a:1})";
-      parse "test.c.update({a: 1}|{\"$set\": {b: 100}})";
+      parse "test.c.update({a: 1}|{_set: {b: 100}})";
       parse "test.c.replace({a: 1}| {a: 1234})";
       parse "test.c.getindex({a:1234})"));
  "test100" >:: (fun _ ->
@@ -558,8 +558,8 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 100, c: [9]})";
       parse "test.c.insert({a: 2, b: 1000, c: [999]})";
       parse "test.c.insert({a: 1, b: 1, c: [999999]})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, 
-        fdsa: {\"$max\": \"c\"}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": \"b\"}, 
+        fdsa: {\"_max\": \"c\"}})"));
  "test101" >:: (fun _ ->
     assert_equal (Success
       (json_printer "[{_id: 1, asdf: 101, fdsa: 0}, 
@@ -568,8 +568,8 @@ let end_to_end_tests = [
       parse "test.c.insert({a: 1, b: 100, c: [9]})";
       parse "test.c.insert({a: 2, b: 1000, c: [999]})";
       parse "test.c.insert({a: 1, b: 1, c: [999999]})";
-      parse "test.c.aggregate({_id: \"a\", asdf: {\"$sum\": \"b\"}, 
-        fdsa: {\"$sum\": \"c\"}})"));
+      parse "test.c.aggregate({_id: \"a\", asdf: {\"_sum\": \"b\"}, 
+        fdsa: {\"_sum\": \"c\"}})"));
 ]
 
 let suite =
