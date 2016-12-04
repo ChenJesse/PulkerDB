@@ -33,7 +33,7 @@ FEATURE OVERVIEW
 | db.createCollection(COLLECTION_NAME)                        |
 | db.COLLECTION_NAME.drop()                                   |
 | db.COLLECTION_NAME.insert(GEN_DOC)                          |
-| db.COLLECTION_NAME.find()                                   |
+| db.COLLECTION_NAME.find(QUERY_DOC)                          |
 | db.COLLECTION_NAME.show()                                   |
 | db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)             |
 | db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC)           |
