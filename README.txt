@@ -423,9 +423,9 @@ Output: [
 
 Explanation:
 ------------------------------------------------------------------------------------------------------
-::>
-Output:
-Explanation:
+::> use benchmark
+Output: The time to run query 1 was: 0.016 the time to run query 2 was: 0.
+Explanation: The non index using query took 0.016, the index using query took 0 (too fast)
 ------------------------------------------------------------------------------------------------------
 ::>
 Output:
