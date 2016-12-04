@@ -5,7 +5,6 @@ exception NotInDisc
 (* Given a json representing the output of a query,
  * writes it to the Output folder *)
 val write_query_json : Yojson.Basic.json -> string
->>>>>>> e31e8568ec35d0a5f154b6337c89e6f4dc409c27
 
 (* Removes a db from disc by name, deleting its folder and json files *)
 val remove_db: string -> unit
@@ -45,4 +44,4 @@ val read_collection: string -> string -> col
 val read_db: string -> db -> unit
 
 (* Prints all the persisted dbs *)
-val show_persisted: unit -> unit
+val show_persisted: unit -> string list

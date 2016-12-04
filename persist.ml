@@ -17,7 +17,7 @@ let write_query_json json =
   let filename = string_of_int (!output_name) in
   output_name := !output_name + 1;
   let filepath = "Output/" ^ filename ^ ".json" in
-  Yojson.Basic.to_file filepath json; 
+  Yojson.Basic.to_file filepath json;
   filepath
 
 (* [col filename] Given a filename, returns true if filename is a
@@ -132,13 +132,14 @@ let read_db db_name db =
     | Unix.Unix_error _ -> raise NotInDisc
 
 let show_persisted () =
-  let rec helper dir_handle =
+  let rec helper dir_handle acc =
     try
-      let file = Unix.readdir dir_handle in
-      if Sys.is_directory ("Persist/" ^ file) && (file <> ".") && (file <> "..")
-        then print_endline file;
-      helper dir_handle
+      let db = Unix.readdir dir_handle in
+      if Sys.is_directory ("Persist/" ^ db) && (db <> ".") && (db <> "..") then
+        helper dir_handle (db :: acc)
+      else
+        helper dir_handle acc
     with
-      | End_of_file -> ()
+      | End_of_file -> acc
   in
-  helper (Unix.opendir "Persist")
+  helper (Unix.opendir "Persist") []
