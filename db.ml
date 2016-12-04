@@ -433,7 +433,7 @@ let index_checker col query_list =
       else helper t
   in
   helper query_list;
-  if !docs = [] then docs := (fst col);
+  if !docs = [] then (docs := (fst col));
   !docs
 
 let query_col db_name col_name query_doc =
