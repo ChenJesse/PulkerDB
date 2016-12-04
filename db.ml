@@ -493,7 +493,7 @@ let show_db db_name =
 
 let show_catalog () =
   try (
-    let persisted_dbs = Hashtbl.fold (fun k _ init -> k::init) environment [] in (* TODO: Replace with function instead of environment *)
+    let persisted_dbs = show_persisted () in 
     let new_dbs = !new_dbs in
     let contents = new_dbs@persisted_dbs |> stringify_list in
     Success contents

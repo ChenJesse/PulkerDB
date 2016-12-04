@@ -142,4 +142,6 @@ let show_persisted () =
     with
       | End_of_file -> acc
   in
-  helper (Unix.opendir "Persist") []
+  try (helper (Unix.opendir "Persist") []) with 
+  | _ -> []
+  
