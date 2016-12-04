@@ -754,9 +754,9 @@ let rec modify_doc doc update_doc =
     if Util.member u_key doc <> `Null then
       `Assoc (
         (List.map (fun pair -> match (fst pair) = u_key with
-          | true -> (match snd pair with
-            | `Assoc _ -> (fst pair, modify_doc (snd pair) u_value)
-            | _ -> (fst pair, u_value))
+          | true -> (match snd pair, u_value with
+            | (`Assoc _, `Assoc _) -> (fst pair, modify_doc (snd pair) u_value)
+            | (_,_) -> (fst pair, u_value))
           | false -> pair) lst)
       )
     else `Assoc ((u_key, u_value)::lst)
