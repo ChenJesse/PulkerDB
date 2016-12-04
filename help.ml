@@ -43,7 +43,7 @@ let save_msg =
 let usdb_msg = 
   "Attempts to create the specified database. Will fail if database already exists with the same name."
 
-let usbm_msg = ""
+let usbm_msg = "Method for evaluating performance on database of 15000 items."
 
 let drdb_msg = 
   "Attempts to drop an existing database. Will fail if database does not exist."
@@ -92,9 +92,13 @@ let aggr_msg =
     Note that in the case where $min has no luck aggregating the desired fields, it will return 4611686018427387904.
     Enter -agg_doc for more information."
 
-let cidx_msg = ""
+let cidx_msg = 
+  "Given a field that exists in the specified collection, will create an ascending index
+    on that field. See -index_doc for proper field formatting."
 
-let gidx_msg = ""
+let gidx_msg = 
+  "Given an index that exists in our collection, and a key that exists for the specified index,
+    return the list of JSON's associated with that key."
 
 let gen_doc_msg =
   "A general document.

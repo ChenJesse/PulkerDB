@@ -25,26 +25,83 @@ FEATURE OVERVIEW
 
                       DATABASE COMMANDS
 ---------------------------------------------------------------
-| show()                                                      |
-| save()                                                      |
-| use DATABASE_NAME                                           |
-| use benchmark                                               |
-| db.dropDatabase()                                           |
-| db.createCollection(COLLECTION_NAME)                        |
-| db.COLLECTION_NAME.drop()                                   |
-| db.COLLECTION_NAME.insert(GEN_DOC)                          |
-| db.COLLECTION_NAME.find(QUERY_DOC)                          |
-| db.COLLECTION_NAME.show()                                   |
-| db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)             |
-| db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC)           |
-| db.COLLECTION_NAME.remove(QUERY_DOC)                        |
-| db.COLLECTION_NAME.aggregate(AGG_DOC)                       |
-| db.COLLECTION_NAME.createIndex(INDEX_DOC)                   |
-| db.COLLECTION_NAME.getIndex(INDEX_DOC)                      |
----------------------------------------------------------------"
+|                     COMMAND                       |   INFO  |
+---------------------------------------------------------------
+| show()                                            |  -show  |
+| save()                                            |  -save  |
+| use DATABASE_NAME                                 |  -usdb  |
+| use benchmark                                     |  -usbm  |
+| db.dropDatabase()                                 |  -drdb  |
+| db.show()                                         |  -dbsh  | 
+| db.createCollection(COLLECTION_NAME)              |  -ccol  |
+| db.COLLECTION_NAME.drop()                         |  -drcl  |
+| db.COLLECTION_NAME.insert(GEN_DOC)                |  -isrt  |
+| db.COLLECTION_NAME.find(QUERY_DOC)                |  -find  |
+| db.COLLECTION_NAME.show()                         |  -clsh  |
+| db.COLLECTION_NAME.replace(QUERY_DOC | GEN_DOC)   |  -repl  |
+| db.COLLECTION_NAME.update(QUERY_DOC | UPDATE_DOC) |  -updt  |
+| db.COLLECTION_NAME.remove(QUERY_DOC)              |  -rmve  |
+| db.COLLECTION_NAME.aggregate(AGG_DOC)             |  -aggr  |
+| db.COLLECTION_NAME.createIndex(INDEX_DOC)         |  -cidx  |
+| db.COLLECTION_NAME.getIndex(INDEX_DOC)            |  -gidx  |
+---------------------------------------------------------------
 
 Most of the commands are heavily based around MongoDB. 
 Tutorial's can be found at https://www.tutorialspoint.com/mongodb/.
+
+------------------------------------------------------------------------------------------------------
+COMMAND SUMMARIES
+------------------------------------------------------------------------------------------------------
+show: Shows all the existing databases.
+
+save: Persists the environment to disk.
+
+usdb: Attempts to create the specified database. Will fail if database already exists with the same name.
+
+usbm: Method for evaluating performance on database of 15000 items.
+
+drdb: Attempts to drop an existing database. Will fail if database does not exist.
+
+dbsh: Shows all the existing collections in the specified database.
+
+ccol: Creates a collection in the specified database. Will fail if a collection already exists with the same name in the database.
+
+drcl: Drops a collection in the specified database. Will fail if collection does not exist.
+
+isrt: Inserts a document in the specified collection, in the specified database. 
+    Note that duplicate documents are permitted. 
+    Enter -gen_doc for more information.
+
+find: Searches the specified collection for documents conforming to the query_doc's requirements. 
+    Note that if a document does not contain one of the specified fields in the query_doc, it will be treated as not satisfying the query_doc.
+    Note that a document must have all of the specified fields in the query_doc.
+    Note that arrays are unfortunately not supported in querying. 
+    Enter query_doc for more information.
+
+clsh: Shows all the documents that exist in the collection.
+
+repl: Chains together a remove operation, and an insert operation. Enter -query_doc or -gen_doc for more information.
+
+updt: Will update all the documents retrieved from the query_doc, according to the update_doc. 
+    Note that if the document does not already have a field to be updated, the field will be created.
+    Enter -query_doc or -update_doc for more information.
+
+rmve: Will remove all the documents that satisfy the query_doc. Enter -query_doc for more information.
+
+aggr: Will aggregate the collection based on the agg_doc, and return the information in document form. 
+    An aggregation operation consists of a group_by phase, and then aggregation operations on one or more fields.
+    IMPORTANT: Aggregations are supported only for integers.
+    Note that in the case where $sum has no luck aggregating the desired fields, it will return 0.
+    Note that in the case where $max has no luck aggregating the desired fields, it will return -4611686018427387904.
+    Note that in the case where $min has no luck aggregating the desired fields, it will return 4611686018427387904.
+    Enter -agg_doc for more information.
+
+cidx: Given a field that exists in the specified collection, will create an ascending index
+    on that field. See -index_doc for proper field formatting.
+
+gidx: Given an index that exists in our collection, and a key that exists for the specified index,
+    return the list of JSON's associated with that key.
+
 
 ------------------------------------------------------------------------------------------------------
 DOCUMENT STURCTURES
@@ -81,7 +138,7 @@ INDKEY_DOC: An index-key document.
 store: If you wish to pipe the results of your query to a json file, end your command with the -s flag.
   The appropriate commands to use this with are: find, aggregate, and db.COLLECTION_NAME.show().
   Flagging inappropriate commands will have no effect.
-  Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file."
+  Example: db.COLLECTION_NAME.find({a: {$lte: 5}}) -s, will store all the results of the query in a json file.
 
 ------------------------------------------------------------------------------------------------------
 SAMPLE FLOW WALKTHROUGH

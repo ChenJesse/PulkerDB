@@ -90,10 +90,10 @@ val drop_col : string -> string -> response
 (**
  * Given the database, collection, desired index_name and querydoc, creates a index.
  * requires:
- *      - [db_name] is the string
- *      - [col_name] is the string
- *      - [index_name] is the string representation of a index in our collection
- *      - [query_doc] is of type `Assoc
+ *   - [db_name] is the string
+ *   - [col_name] is the string
+ *   - [index_name] is the string representation of a index in our collection
+ *   - [query_doc] is of type `Assoc
  *)
 val create_index: string -> string -> string -> Yojson.Basic.json -> response
 
@@ -101,10 +101,10 @@ val create_index: string -> string -> string -> Yojson.Basic.json -> response
  * Returns the values associated with the specified key in the desired index
  * Returns empty list if nothing can be found.
  * requires:
- *       - [index_name] is a valid index in our collection
- *       - [value] is of type doc
- *       - [col_name] is the name of a valid collection in our database
- *       - [db_name] is the name of a database in our catalog
+ *   - [index_name] is a valid index in our collection
+ *   - [value] is of type doc
+ *   - [col_name] is the name of a valid collection in our database
+ *   - [db_name] is the name of a database in our catalog
  *)
 val get_values: Yojson.Basic.json -> string -> string -> string -> response
 

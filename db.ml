@@ -330,8 +330,8 @@ let parse_op str = match str with
  * Depending on what type of query it is,
  * it will then call traverse with certain bounds on the tree.
  * requires:
- *      - [col_tree] is a index tree
- *      - [query_doc] is a list of `Assoc
+ *   - [col_tree] is a index tree
+ *   - [query_doc] is a list of `Assoc
  *)
 let index_query_builder col_tree query_doc =
   let rec helper col_tree query_doc = match query_doc with
@@ -358,15 +358,11 @@ let index_query_builder col_tree query_doc =
       | Some Eq -> failwith unexpected_error
       | None -> match (nested_json (snd h)) with
         | true -> (
-          (* We have a doc as the value, need to recurse *)
-          (* Represents the nested doc in the query_doc *)
           let nested = match (snd h) with
             | `Assoc lst -> lst
             | _ -> failwith unexpected_error in
-          (* If it's a comparator JSON, we only recurse a level in on doc (nested) *)
           if h |> snd |> comparator_json then helper col_tree nested else []
         )
-        (* We have an equality check *)
         | false -> find (snd h) col_tree
       )
     | _ -> failwith unexpected_error
@@ -419,8 +415,8 @@ let check_doc doc query_doc =
 * Otherwise, continue and ultimately just
 * return whatever the collection's list of docs are if no index can be matched.
 * requires:
-*     - [col] is of type collection
-*     - [query_list] is a list of type doc
+*   - [col] is of type collection
+*   - [query_list] is a list of type doc
 *)
 let index_checker col query_list =
   let docs = ref [] in
@@ -454,8 +450,8 @@ let query_col db_name col_name query_doc =
 (**
  * Extract all the keys associated with this List, removing duplicates as we go.
  * requires:
- *     - [list_tbl] is a list representation of a hashtable
- *     - [key_list] is a list of type doc
+ *   - [list_tbl] is a list representation of a hashtable
+ *   - [key_list] is a list of type doc
  *)
 let rec extract_keys list_tbl key_list =
   match list_tbl with
@@ -467,7 +463,7 @@ let rec extract_keys list_tbl key_list =
 (**
  * Return the keySet for my hashtable, tbl. That is, a set with only unique keys.
  * requires:
- *     - tbl is a hashtable.
+ *   - tbl is a hashtable.
  *)
 let key_set tbl =
   let list_tbl = Hashtbl.fold (fun k v acc-> (k,v)::acc) tbl [] in
@@ -499,10 +495,10 @@ let create_index db_name col_name index_name query_doc =
 (**
  * Given a remove operation, updates the index tree to reflect new state.
  * requires:
- *      - [db_name] is the string
- *      - [col_name] is the string
- *      - [index_list] is a list of index_file
- *      - [new_list] is a list of index_file
+ *   - [db_name] is the string
+ *   - [col_name] is the string
+ *   - [index_list] is a list of index_file
+ *   - [new_list] is a list of index_file
  *)
 let rec recreate_index db_name col_name index_list new_list=
   match index_list with
