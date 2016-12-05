@@ -94,7 +94,7 @@ let write_env (env : catalog) =
         Unix.rmdir db_name;
         write_db db_name db))
     with
-      | NotInDisc -> "test4";write_db db_name db
+      | NotInDisc -> write_db db_name db
   in
   create_dir "Persist";
   Hashtbl.iter helper env

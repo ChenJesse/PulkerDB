@@ -821,8 +821,8 @@ let benchmarker () =
   let json_list_2 = benchmark_json_gen 20000 [] in
   let index_doc = `Assoc[ ("a", `Assoc[("_exists", `Bool true)])] in
   let query_doc = `Assoc[ ("a", `Int 15000); ("b", `Int 30000)] in
-  List.map (fun f -> create_doc "benchmark_db" "col1" f) json_list_1;
-  List.map (fun f -> create_doc "benchmark_db" "col2" f) json_list_2;
+  List.iter (fun f -> let _ = create_doc "benchmark_db" "col1" f in ()) json_list_1;
+  List.iter (fun f -> let _ = create_doc "benchmark_db" "col2" f in ()) json_list_2;
   let _ = create_index "benchmark_db" "col2" "a" index_doc in
   print_endline "Index has been made!";
   let t = Sys.time () in

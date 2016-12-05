@@ -216,7 +216,7 @@ let rec get_range d highval lowval = match d with
   | Leaf -> []
   | TwoNode ((k, v), l, r) ->
     if k < highval && k > lowval then
-      if ((v = [`Null] & k <> `Null) || (v= [`Int 0] & k <> `Int 0))
+      if ((v = [`Null] && k <> `Null) || (v= [`Int 0] && k <> `Int 0))
         then (get_range l highval lowval) @ (get_range r highval lowval)
       else v @ (get_range l highval lowval) @ (get_range r highval lowval)
     else if k >= highval then
@@ -226,11 +226,11 @@ let rec get_range d highval lowval = match d with
   | ThreeNode ((k1, v1), (k2, v2), l, m, r) ->
      if (lowval < k1) then
         if(lowval < k2 && k2 < highval && k1 < highval) then
-          if ( (v2 = [`Null] & k2 <> `Null) || (v2 = [`Int 0] & k2 <> `Int 0) )
+          if ( (v2 = [`Null] && k2 <> `Null) || (v2 = [`Int 0] && k2 <> `Int 0) )
           then (get_range l  highval lowval)@(get_range m  highval lowval)@(get_range r  highval lowval)
           else v2@(get_range l  highval lowval)@(get_range m  highval lowval)@(get_range r  highval lowval)
         else if (k1 < highval && k2 >= highval ) then
-          if ( (v1 = [`Null] & k1 <> `Null) || (v1 = [`Int 0] & k1 <> `Int 0) )
+          if ( (v1 = [`Null] && k1 <> `Null) || (v1 = [`Int 0] && k1 <> `Int 0) )
           then (get_range l  highval lowval)@(get_range m  highval lowval)
           else v1@(get_range l  highval lowval)@(get_range m  highval lowval)
         else if (k1 = highval) then get_range l highval lowval
