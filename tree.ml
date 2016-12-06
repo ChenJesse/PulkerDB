@@ -241,17 +241,6 @@ let rec get_range d highval lowval = match d with
         else []
       else []
 
-
-
-(*
-         | 0,_,_, 0 -> find_docs m  highval lowval
-         | 0,0,_,_->[]
-         | 1, -1, 1, -1 -> v1@v2@(find_docs l  highval lowval)@(find_docs m  highval lowval)@(find_docs r  highval lowval)
-         | 1,0, _, _-> find_docs l  highval lowval
-         | 1,-1,1,0-> v1@(find_docs l  highval lowval)@(find_docs m  highval lowval)
-         | _,_,0,_-> (find_docs r  highval lowval)
-         | _ -> v1@v2@[]
-*)
 (* [remove_up node parent direction]
  * Pushes the given node into the parent, returning either
  * a new hole if the result does not satisfy the invariant, or an absorbed
@@ -320,42 +309,6 @@ let remove_up node parent direction =
       let new_m = TwoNode((kp1,vp1), rs, hole_child) in
       Absorbed(kv, ThreeNode((ks2,vs2), (kp2,vp2), new_l, new_m, rp))
   | _ -> failwith "Parent and sibling are not valid nodes"
-
-(* -------------------DOES NOT COMPILE, JUST ATTEMPTED DELETE----------------*)
-(*   let rec delete_smallest d = match d with
-  | Leaf -> failwith "Trying to delete from Leaf"
-  | TwoNode(kv, Leaf, _) -> Hole(Some kv, Leaf)
-  | ThreeNode(kv1, kv2, Leaf, Leaf, Leaf) ->
-      Absorbed(Some kv1, TwoNode(kv2, Leaf, Leaf))
-  | TwoNode(kv, l, r) ->
-      let temp = delete_smallest l in
-      match temp with
-        | Hole(_, Leaf) -> remove_up temp d Left2
-        | Absorbed(opt, child) -> Absorbed(opt, TwoNode(kv, child, r))
-  | ThreeNode(kv1, kv2, l, m, r) ->
-      let temp = delete_smallest l in
-      match temp with
-        | Hole(_, Leaf) -> remove_up temp d Left3
-        | Absorbed(opt, child) ->
-            Absorbed(opt, ThreeNode(kv1, kv2, child, m, r)) *)
-
-(* let remove_down key d = match d with
-  | Leaf -> Absorbed(Leaf)
-  | ThreeNode((k1,v1), (k2,v2), Leaf, _, _) ->
-    if key = k1 then
-      Absorbed(TwoNode((k2,v2), Leaf, Leaf))
-    else if key = k2 then
-      Absorbed(TwoNode((k1,v1), Leaf, Leaf))
-    else (Absorbed(d))
-  | TwoNode((k,v), Leaf, Leaf) ->
-    if key = k then
-      Hole((k,v), Leaf)
-    else
-      Absorbed(d)
-  | TwoNode((k,v), l, r) ->
-    if key = k then
-      let
-      '' *)
 
 let remove key d = d
 
