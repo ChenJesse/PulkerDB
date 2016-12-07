@@ -25,6 +25,7 @@ let rec loop input = (
   | "-indkey_doc" -> ANSITerminal.(print_info indkey_doc_msg)
   | "-store" ->      ANSITerminal.(print_info store_msg)
   | "-show" ->       ANSITerminal.(print_info show_msg)
+  | "-save" ->       ANSITerminal.(print_info save_msg)
   | "-usdb" ->       ANSITerminal.(print_info usdb_msg)
   | "-usbm" ->       ANSITerminal.(print_info usbm_msg)
   | "-drdb" ->       ANSITerminal.(print_info drdb_msg)

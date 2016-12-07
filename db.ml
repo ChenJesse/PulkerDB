@@ -629,6 +629,7 @@ let aggregate db_name col_name agg_doc =
  *)
 let drop_db db_name =
   try (
+    let _ = get_db db_name in 
     let db_exists = Hashtbl.mem environment db_name in
     if db_exists then (
       Hashtbl.remove environment db_name;

@@ -55,7 +55,7 @@ let remove_db db_name =
   try (
     let rm filename = Unix.unlink ("Persist/" ^ db_name ^ "/" ^ filename) in
     traverse_dir rm ("Persist/" ^ db_name);
-    Unix.rmdir ("Persist" ^ db_name))
+    Unix.rmdir ("Persist/" ^ db_name))
   with
   | _ -> raise NotInDisc
 

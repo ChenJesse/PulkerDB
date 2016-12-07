@@ -299,6 +299,9 @@ Output:[
 ::> test.c.update({a: {_exists: true}}|{_set: {b: {c: "pulkerton"}}})
 Output: Collection updated successfully!
 ------------------------------------------------------------------------------------------------------
+::> test.c.update({a: {_exists: true}}|{_set: {b: "pulkerton", x: "pulkertron"}})
+Output: Collection updated successfully!
+------------------------------------------------------------------------------------------------------
 ::> test.c.show()
 Output: [
   { "b": { "c": "pulkerton" }, "a": 100 },
